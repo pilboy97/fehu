@@ -1,0 +1,40 @@
+    c   r   u   d
+    new get alt del
+acc
+txn
+
+new acc [-(d|desc)=<설명>|-(h)] <계정 이름>
+    <계정 이름> : <부모>.<이름>
+        ex) 수입.월급, 지출.교통비
+        이름은 unique
+
+get acc (name <이름> | desc <설명>)
+get acc child <이름>
+
+alt acc -d=<설명> <이름>
+alt acc rename <old> <new>
+
+del acc <이름>
+
+
+new txn [-(t|time)=<시간>|-(d|desc)=<설명>] <거래>
+    거래 생성 후 거래 ID 출력
+    <시간> : <년>-<월>-<일>;<시>:<분>:<초>
+    <거래> : (<계정>(<<|>>)<증감>;)*(<계정>(<<|>>)<증감>)
+
+del txn <거래 ID>
+
+alt txn [-(t|time)=<시간>|-(d|desc)=<설명>] <거래 ID> 
+alt txn record <거래 ID> <거래>
+
+get txn (id <거래 ID>| time <시간> ~ <시간> | desc <설명>)
+
+
+quit
+    종료
+
+begin 연산모드 시작
+end 연산모드 종료
+
+계정 이름 규칙
+    (~)?<계정>:<계정>:<계정>...

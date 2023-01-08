@@ -1,0 +1,3 @@
+open db.db
+get txn -s=a
+calc acc(a,`bank`)

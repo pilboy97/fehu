@@ -1,0 +1,93 @@
+get acc -save=a
+    a란 이름의 table 저장
+
+calc AVERAGE(a, <계정 이름>) -> a에 저장된 계정이름 평균값
+
+함수들
+    생성
+        def X 식
+    table 연산
+        AND
+        OR
+        SUB
+        XOR
+    table 속성
+        COUNT
+    검색
+        SEARCH
+            SEARCH(a, Contains($name,"a")) => 새 txn table
+            SEARCH(a, $income > 100)
+            SEARCH(a, $time < time)
+    기본 연산
+        SUM
+        AVG
+        MEDIAN
+        VAR
+        DEV
+        SVAR
+        SDEV
+        MIN
+        MAX
+    출력
+        Print
+        PrintAcc
+
+TIME(str) => time
+
++ - * / %
+!= == < > <= >= 
+&& ||
+!
+
++
+    num + num => num
+    str + str => str
+-
+    num - num => num
+*
+    num * num => num
+/
+    num / num => num
+
+== 
+    num == num => bool
+!= 
+    num == num => bool
+
+<
+    time < time => bool
+    num < num => bool
+    str < str => bool
+>
+    time > time => bool
+    num > num => bool
+    str > str => bool
+<=
+    time <= time => bool
+    num <= num => bool
+    str <= str => bool
+>=
+    time >= time => bool
+    num >= num => bool
+    str >= str => bool
+
+&&
+    bool && bool => bool
+||
+    bool || bool => bool
+
+!
+    !bool => bool
+
+ABS(num) => num
+MOD(num, num)
+
+Contains(str, str) bool
+
+TIME(str) num
+
+tsum(a, `~income`)
+sum(1,2,3)
+
+tavg(a, `bank`)
+avg(1,2,3)
