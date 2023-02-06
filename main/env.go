@@ -5,13 +5,10 @@ import (
 )
 
 type Env struct {
-	code string
 }
 
 func NewEnv() *Env {
-	return &Env{
-		code: "KRW",
-	}
+	return &Env{}
 }
 func (e *Env) Path() string {
 	return core.DBPath
@@ -23,4 +20,10 @@ func (e *Env) Open(path string) {
 func (e *Env) Close() {
 	core.DBPath = ""
 	core.Close()
+}
+func (e *Env) Code() string {
+	return core.Code
+}
+func (e *Env) SetCode(str string) {
+	core.Code = str
 }

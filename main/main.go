@@ -18,7 +18,6 @@ var initDB string
 
 func init() {
 	env = NewEnv()
-	core.Code = env.code
 }
 
 func main() {

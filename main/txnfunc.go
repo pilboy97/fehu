@@ -91,7 +91,7 @@ func ParseTxnPattern(pat string) []Pattern {
 			f = -f
 		}
 
-		amount := money.NewFromFloat(f, env.code)
+		amount := money.NewFromFloat(f, env.Code())
 
 		ret = append(ret, Pattern{Name: name, Amount: amount})
 	}
