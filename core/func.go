@@ -35,6 +35,10 @@ func SureName(name string) string {
 		panic(ErrWrongName)
 	}
 
+	if _, ok := Vars[name]; ok {
+		panic(ErrAlreadyExists)
+	}
+
 	if id := GetAccByName(name); id != -1 {
 		panic(ErrAlreadyExists)
 	}
@@ -47,7 +51,6 @@ func Search(str, ptn string) bool {
 		D[i] = make([]bool, len(str))
 	}
 
-	//fmt.Println(str, ptn)
 	S, P := []rune(str), []rune(ptn)
 
 	if S[0] == P[0] || P[0] == '*' || P[0] == '?' {
@@ -70,19 +73,6 @@ func Search(str, ptn string) bool {
 			}
 		}
 	}
-
-	/*
-		for i := 0; i < len(P); i++ {
-			for j := 0; j < len(S); j++ {
-				if D[i][j] {
-					fmt.Print("+")
-				} else {
-					fmt.Print("-")
-				}
-			}
-			fmt.Println()
-		}
-	*/
 
 	for i := 0; i < len(S); i++ {
 		if D[len(P)-1][i] {

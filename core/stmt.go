@@ -25,6 +25,7 @@ var Vars = map[string]ast.Value{
 	"xor":       ast.Variable{Name: "xor"},
 	"atag":      ast.Variable{Name: "atag"},
 	"ttag":      ast.Variable{Name: "ttag"},
+	"help":      ast.Variable{Name: "help"},
 }
 
 func CalcStmt(stmt string) ast.Value {
@@ -53,6 +54,9 @@ func Calc(root *ast.Ast) ast.Value {
 		return v
 	case ast.Variable:
 		if v, ok := Vars[v.Name]; ok {
+			if v2, ok := v.(ast.Computed); ok {
+				return v2.Fn()
+			}
 			return v
 		} else {
 			panic(ErrUnknownVariable)
@@ -168,7 +172,6 @@ func Calc(root *ast.Ast) ast.Value {
 			ret := ast.List{}
 
 			return ret.Append(L).Append(R)
-
 		case ast.FCALL:
 			return FCall(root)
 
@@ -283,6 +286,7 @@ func FCall(root *ast.Ast) ast.Value {
 		} else {
 			panic(ErrWrongType)
 		}
+
 		if v, ok := r.List()[1].(ast.Str); ok {
 			name = string(v)
 		} else {

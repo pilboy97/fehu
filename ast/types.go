@@ -14,11 +14,17 @@ type Num float64
 func (n Num) String() string {
 	return fmt.Sprint(float64(n))
 }
+func (n Num) Get() Value {
+	return n
+}
 
 type Str string
 
 func (s Str) String() string {
 	return fmt.Sprint(string(s))
+}
+func (s Str) Get() Value {
+	return s
 }
 
 type Bool bool
@@ -26,11 +32,17 @@ type Bool bool
 func (b Bool) String() string {
 	return fmt.Sprint(bool(b))
 }
+func (b Bool) Get() Value {
+	return b
+}
 
 type Void struct{}
 
 func (v Void) String() string {
 	return ""
+}
+func (v Void) Get() Value {
+	return v
 }
 
 type Sym struct {
@@ -40,6 +52,9 @@ type Sym struct {
 func (s Sym) String() string {
 	return fmt.Sprintf("<%s>", SymbolDesc[s.Op])
 }
+func (s Sym) Get() Value {
+	return s
+}
 
 type Variable struct {
 	Name string
@@ -47,6 +62,9 @@ type Variable struct {
 
 func (v Variable) String() string {
 	return fmt.Sprintf("<%s>", v.Name)
+}
+func (v Variable) Get() Value {
+	return v
 }
 
 type List struct {
@@ -68,6 +86,9 @@ func (l List) String() string {
 
 	return strings.Join(ret, "")
 }
+func (l List) Get() Value {
+	return l
+}
 func (l List) Append(v Value) List {
 	ret := make([]Value, 0)
 	ret = append(ret, l.list...)
@@ -79,4 +100,15 @@ func (l List) Append(v Value) List {
 		ret = append(ret, v)
 	}
 	return List{list: ret}
+}
+
+type Computed struct {
+	Fn func() Value
+}
+
+func (c Computed) String() string {
+	return c.Fn().String()
+}
+func (c Computed) Get() Value {
+	return c.Fn()
 }

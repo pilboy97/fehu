@@ -14,10 +14,10 @@ type CLI struct {
 	isAlive bool
 
 	Prefix func() string
-	OnCmd  func(cli *CLI, cmd string) error
+	OnCmd  func(cmd string) error
 }
 
-func NewCLI(f func(cli *CLI, cmd string) error) *CLI {
+func NewCLI(f func(cmd string) error) *CLI {
 	return &CLI{
 		OnCmd: f,
 	}
@@ -42,7 +42,7 @@ func (cli *CLI) Run(r io.Reader) error {
 	for cli.IsAlive() {
 		for stdin.Scan() {
 			cmd := stdin.Text()
-			if err = cli.OnCmd(cli, cmd); err != nil {
+			if err = cli.OnCmd(cmd); err != nil {
 				if err == ErrShutdownSystem {
 					cli.Done()
 				}

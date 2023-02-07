@@ -15,6 +15,7 @@ import (
 var env *Env
 var BenchMode bool
 var initDB string
+var cmd string
 
 func init() {
 	env = NewEnv()
@@ -23,11 +24,11 @@ func init() {
 func main() {
 	flag.StringVar(&initDB, "d", "", "start with opening db")
 	flag.BoolVar(&BenchMode, "b", false, "print elapsed time")
+	flag.StringVar(&cmd, "c", "", "execute command")
+	flag.StringVar(&core.Code, "CODE", "KRW", "set currency code")
 	flag.Parse()
 
-	println("Fehu started")
-
-	var CLI = cli.NewCLI(func(cli *cli.CLI, cmd string) error {
+	var CLI = cli.NewCLI(func(cmd string) error {
 		st := time.Now()
 		res, err := parser.Parse(cmd)
 		if err != nil {
@@ -56,6 +57,24 @@ func main() {
 		core.Open(initDB + ".db")
 	}
 
+	if len(cmd) != 0 {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Print(r)
+			}
+		}()
+
+		err := CLI.OnCmd(cmd)
+		if err != nil {
+			if err == cli.ErrShutdownSystem {
+				return
+			}
+			panic(err)
+		}
+		return
+	}
+
+	println("Fehu started")
 	for {
 		ok := func() bool {
 			defer func() {

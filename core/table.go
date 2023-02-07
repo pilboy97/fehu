@@ -30,6 +30,9 @@ func (t *Table) String() string {
 
 	return PrintTxns(ids)
 }
+func (t *Table) Get() ast.Value {
+	return t
+}
 func (t *Table) Count() int {
 	return len(t.ids)
 }
@@ -190,4 +193,12 @@ func (t *Table) TTag(name string) *Table {
 
 type Period struct {
 	St, Ed *time.Time
+}
+
+func init() {
+	Vars["__all__"] = ast.Computed{
+		Fn: func() ast.Value {
+			return NewTable(GetTxn())
+		},
+	}
 }

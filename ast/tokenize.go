@@ -40,10 +40,10 @@ func Tokenize(str string) []Token {
 		var tok Token
 
 		switch {
-		case runes[i] == '`':
+		case runes[i] == '\'':
 			var done = false
 			for j := i + 1; j < len(runes); j++ {
-				if runes[j] == '`' {
+				if runes[j] == '\'' {
 					str = string(runes[i+1 : j])
 
 					tok.Sym = STR
@@ -53,6 +53,7 @@ func Tokenize(str string) []Token {
 
 					i = j
 					done = true
+
 					break
 				}
 			}
@@ -95,10 +96,11 @@ func Tokenize(str string) []Token {
 
 				i = len(runes)
 			}
-		case inRange(runes[i], 'a', 'z') || inRange(runes[i], 'A', 'Z'):
+		case runes[i] == '_' || inRange(runes[i], 'a', 'z') || inRange(runes[i], 'A', 'Z'):
 			var done = false
 			for j := i + 1; j < len(runes); j++ {
-				if !(inRange(runes[j], '0', '9') ||
+				if !(runes[j] == '_' ||
+					inRange(runes[j], '0', '9') ||
 					inRange(runes[j], 'a', 'z') ||
 					inRange(runes[j], 'A', 'Z')) {
 					tok.Sym = NAME
@@ -119,7 +121,6 @@ func Tokenize(str string) []Token {
 				i = len(runes)
 			}
 		case runes[i] == '(':
-
 			tok.Sym = POPEN
 			tok.Str = "("
 			tok.Location = len(ret)
