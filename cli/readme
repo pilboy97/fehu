@@ -1,3 +1,4 @@
 CLI
 
 CLI is a library for a CLI support in golang
+it uses DFA to parse command line 
