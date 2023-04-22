@@ -6,12 +6,19 @@ import (
 )
 
 type Value interface {
+	// 추상구문 트리의 노드의 값
 	String() string
+	// 노드를 문자열로 출력
+	Get() Value
+	// 노드의 실재 값을 반환
 }
 
 type Num float64
 
+// 숫자 노드
+
 func (n Num) String() string {
+	//문자열로 출력
 	return fmt.Sprint(float64(n))
 }
 func (n Num) Get() Value {

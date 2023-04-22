@@ -11,7 +11,7 @@ import (
 var ErrShutdownSystem = errors.New("system is shutdowned")
 
 type CLI struct {
-	isAlive bool
+	ch chan struct{}
 
 	Prefix func() string
 	OnCmd  func(cmd string) error
@@ -23,16 +23,23 @@ func NewCLI(f func(cmd string) error) *CLI {
 	}
 }
 func (c *CLI) IsAlive() bool {
-	return c.isAlive
+	select {
+	case <-c.ch:
+		return false
+	default:
+		return true
+	}
 }
 func (c *CLI) Done() {
-	c.isAlive = false
+	if !c.IsAlive() {
+		return
+	}
+
+	close(c.ch)
 }
 
-func (cli *CLI) Run(r io.Reader) error {
-	var err error
-
-	cli.isAlive = true
+func (cli *CLI) Run(r io.Reader) {
+	cli.ch = make(chan struct{})
 	defer cli.Done()
 
 	stdin := bufio.NewScanner(r)
@@ -42,15 +49,18 @@ func (cli *CLI) Run(r io.Reader) error {
 	for cli.IsAlive() {
 		for stdin.Scan() {
 			cmd := stdin.Text()
-			if err = cli.OnCmd(cmd); err != nil {
-				if err == ErrShutdownSystem {
-					cli.Done()
-				}
-				return err
-			}
+			cli.Exec(cmd)
 
 			fmt.Print(cli.Prefix())
 		}
 	}
-	return nil
+}
+func (cli *CLI) Exec(str string) {
+	err := cli.OnCmd(str)
+	if err != nil {
+		if err == ErrShutdownSystem {
+			cli.Done()
+		}
+		panic(err)
+	}
 }
