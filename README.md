@@ -5,6 +5,21 @@ this program is licensed under MIT license
 
 ---
 
+## Summary
+
+Fehu is a CLI accounting system written in Go.
+
+Key technical highlights:
+
+- Custom DFA-based command parser
+- AST expression engine for financial queries
+- SQLite persistence layer
+- Modular architecture (cli / core / ast)
+
+The goal of the project was to design a flexible financial analysis tool entirely from scratch.
+
+---
+
 ## Features
 
 ### 🗂️ Account Management
