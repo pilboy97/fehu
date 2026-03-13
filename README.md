@@ -2,6 +2,7 @@
 
 A CLI-based personal accounting system written in Go. Fehu lets you manage accounts, record transactions, tag entries, and run custom calculations — all from an interactive command-line interface backed by a local SQLite database.
 this program is licensed under MIT license
+
 ---
 
 ## Features
