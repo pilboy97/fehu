@@ -7,10 +7,10 @@ this program is licensed under MIT license
 
 ## Features
 
-### 🗂️ Account Management
+### Account Management
 Organize your finances in a hierarchical account tree using colon-separated names (e.g., `income:salary`, `expense:transport`). Accounts support optional descriptions and can be searched by name, description, or parent prefix.
 
-### 💸 Transaction Recording
+### Transaction Recording
 Log financial transactions as a set of account entries. Each entry specifies a direction (`<` for inflow, `>` for outflow) and an amount. Fehu enforces that every transaction is **balanced** — the sum of all entries must equal zero.
 
 ```
@@ -92,18 +92,35 @@ Run with `-b` to print execution time after every command — useful for profili
 
 ---
 
-## Installation
+## Installation Guide
 
 ### Prerequisites
 - [Go](https://go.dev/) 1.18+
-- GCC (required by `go-sqlite3` for CGO)
 
-### Build
+| Platform | Requirement |
+|----------|-------------|
+| Windows | GCC (via MSYS2 or TDM-GCC) |
+| macOS | Xcode Command Line Tools (`xcode-select --install`) |
+| Linux | `gcc` (`apt install gcc` / `yum install gcc`) |
+
+### Option 1 — Build from source
 
 ```bash
 git clone https://github.com/pilboy97/fehu.git
 cd fehu
-go build -o fehu .
+go build -o fehu ./main/
+```
+
+Windows:
+```powershell
+go build -o fehu.exe .\main\
+```
+
+### Option 2 — Download prebuilt binary
+
+Download the binary for your platform from GitHub Releases:
+```
+https://github.com/pilboy97/fehu/releases
 ```
 
 ---
@@ -137,6 +154,57 @@ This creates (or opens) `mybudget.db` in the current directory. The schema is cr
 ./fehu -d mybudget -CODE USD
 ./fehu -c "get acc" -d mybudget
 ```
+
+## MCP Server
+
+Fehu can run as an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server, allowing AI assistants like Claude to manage your ledger through natural language.
+
+### Start the MCP Server
+
+```bash
+./fehu -mcp
+# or open a database on startup
+./fehu -mcp -d mybudget
+```
+
+### Connecting to Claude Desktop
+
+Add the following to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "fehu": {
+      "command": "/path/to/fehu",
+      "args": ["-mcp", "-d", "mybudget"]
+    }
+  }
+}
+```
+
+### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `open_db` | Open or create a database |
+| `get_accounts` | List accounts with balances (filterable by name/desc) |
+| `create_account` | Create a new account |
+| `delete_account` | Delete an account |
+| `get_transactions` | List transactions (filterable by desc, id, time range) |
+| `create_transaction` | Create a new transaction |
+| `batch_create_transactions` | Create multiple transactions at once using a JSON array |
+| `update_transaction` | Update transaction description or time |
+| `delete_transaction` | Delete a transaction |
+| `get_tags` | List all tags |
+| `delete_tag` | Delete a tag |
+| `calc` | Evaluate a calc expression |
+| `get_readme` | Retrieve this documentation |
+
+### Notes
+
+- **String literals** in `calc` expressions must use **single quotes**: `sum(acc(__all__, 'expense*'))`
+- `open_db` with a relative path resolves from the directory of the `fehu` executable. Use absolute paths to avoid ambiguity.
+- The MCP server communicates over **stdio** — it is designed to be launched as a subprocess by an MCP client, not run interactively.
 
 ---
 
@@ -208,6 +276,178 @@ def <name> <expression>
 | `open <name>` | Open (or create) a `.db` file |
 | `close` | Close the current database |
 | `quit` | Exit Fehu |
+
+---
+
+## Best Practice Guide
+
+### 1. Default Account Structure
+
+#### Assets — what you own
+```
+asset:bank            # Bank account
+asset:cash            # Cash on hand
+asset:savings         # Savings / time deposits
+asset:investment      # Stocks, funds, crypto
+asset:realestate      # Real estate
+asset:car             # Vehicles
+```
+
+#### Liabilities — what you owe
+```
+liability:creditcard  # Credit card balance
+liability:loan        # Personal loans
+liability:mortgage    # Mortgage
+```
+
+#### Equity — net worth tracking
+```
+equity:opening        # Opening balance (use when starting a new ledger)
+```
+
+#### Income — money coming in
+```
+income:salary         # Salary
+income:freelance      # Freelance / side income
+income:dividend       # Dividends
+income:interest       # Interest income
+income:rental         # Rental income
+income:capital_gain   # Realized capital gains
+```
+
+#### Expenses — money going out
+```
+expense:food          # Food & dining
+expense:transport     # Transportation
+expense:housing       # Rent / maintenance
+expense:utility       # Utilities
+expense:health        # Healthcare
+expense:education     # Education
+expense:culture       # Entertainment & leisure
+expense:clothing      # Clothing
+expense:subscription  # Subscriptions
+```
+
+---
+
+### 2. Recommended `def` Variables
+
+Add these to your workflow to track net worth and profitability at a glance.
+
+```
+# Net worth (Assets - Liabilities)
+def net_worth sum(acc(__all__, 'asset*')) - sum(acc(__all__, 'liability*'))
+
+# Net income (Income - Expenses)
+def net_income sum(acc(__all__, 'income*')) - sum(acc(__all__, 'expense*'))
+
+# Total assets
+def total_assets sum(acc(__all__, 'asset*'))
+
+# Total liabilities
+def total_liabilities sum(acc(__all__, 'liability*'))
+
+# Total expenses
+def total_expenses sum(acc(__all__, 'expense*'))
+
+# Total income
+def total_income sum(acc(__all__, 'income*'))
+```
+
+Usage:
+```
+calc net_worth
+calc net_income
+```
+
+---
+
+### 3. Tag Conventions
+
+#### Future / Pending transactions
+| Tag | Meaning |
+|-----|---------|
+| `#NOTYET` | Transaction recorded but not yet settled (e.g. future installments) |
+| `#PENDING` | Awaiting confirmation (e.g. pending transfers) |
+
+#### Asset classification
+| Tag | Meaning |
+|-----|---------|
+| `#cash` | Cash-equivalent assets (bank, cash on hand) |
+| `#illiquid` | Hard-to-liquidate assets (real estate, car) |
+| `#investment` | Investment assets subject to market value changes |
+
+#### Unrealized gains & losses
+| Tag | Meaning |
+|-----|---------|
+| `#unrealized` | Value change not yet realized (e.g. stock price increase) |
+| `#realized` | Gain or loss actually settled |
+
+---
+
+### 4. Tracking Patterns
+
+#### Cash-equivalent assets
+```
+# See total liquid assets
+calc sum(atag(__all__, 'cash'))
+```
+
+#### Unrealized gains/losses
+```
+# Record a stock price increase (not yet sold)
+new acc -d="Unrealized gain on stocks #unrealized #investment" income:capital_gain
+new txn -d="AAPL price increase #unrealized" asset:investment<500000;income:capital_gain>500000
+
+# When sold, mark as realized
+alt txn -d="AAPL sold #realized" <txn_id>
+```
+
+#### Exclude future transactions from current net worth
+```
+# Net worth excluding #NOTYET transactions
+def settled_txns xor(__all__, ttag(__all__, 'NOTYET'))
+def real_net_worth sum(acc(settled_txns, 'asset*')) - sum(acc(settled_txns, 'liability*'))
+calc real_net_worth
+```
+
+---
+
+### 5. Example: Starting a New Ledger
+
+```
+# 1. Open your database
+open mybudget
+
+# 2. Create accounts
+new acc asset:bank
+new acc asset:cash
+new acc liability:creditcard
+new acc equity:opening
+new acc income:salary
+new acc expense:food
+new acc expense:transport
+
+# 3. Record opening balances
+new txn -d="Opening balance" asset:bank<3000000;asset:cash<500000;equity:opening>3500000
+
+# 4. Set up def variables
+def net_worth sum(acc(__all__, 'asset*')) - sum(acc(__all__, 'liability*'))
+def net_income sum(acc(__all__, 'income*')) - sum(acc(__all__, 'expense*'))
+
+# 5. Check your position
+calc net_worth
+```
+
+---
+
+### 6. Tips
+
+- **Always balance**: every transaction must sum to zero across all entries.
+- **Use `#NOTYET`** for future installments or scheduled payments so they don't distort your current net worth.
+- **Use `#unrealized`** for paper gains/losses on investments — convert to `#realized` when actually settled.
+- **Use `atag` vs `ttag`**: `atag` filters by account description tags, `ttag` filters by transaction description tags.
+- **String literals** in `calc` expressions use **single quotes** (`'expense*'`), not double quotes.
 
 ---
 

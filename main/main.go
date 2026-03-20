@@ -16,6 +16,7 @@ var env *Env
 var BenchMode bool
 var initDB string
 var cmd string
+var mcpMode bool
 
 func init() {
 	env = NewEnv()
@@ -23,11 +24,25 @@ func init() {
 
 func main() {
 	//플래그 정의
+	flag.BoolVar(&mcpMode, "mcp", false, "start mcp server")
 	flag.StringVar(&initDB, "d", "", "start with opening db")
 	flag.BoolVar(&BenchMode, "b", false, "print elapsed time")
 	flag.StringVar(&cmd, "c", "", "execute command")
 	flag.StringVar(&core.Code, "CODE", "KRW", "set currency code")
 	flag.Parse()
+
+	// DB 자동 오픈 플래그가 있으면 MCP 서버 시작 전에도 DB를 엽니다.
+	if len(initDB) != 0 {
+		core.Open(initDB + ".db")
+	}
+
+	// "mcp" 인자가 전달된 경우 일반 CLI/REPL 로직을 무시하고 MCP 서버만 단독 실행
+	if mcpMode {
+		if err := StartMCPServer(); err != nil {
+			log.Fatalf("MCP Server error: %v", err)
+		}
+		return
+	}
 
 	// CLI 정의
 	var CLI = cli.NewCLI(func(cmd string) error {
@@ -63,10 +78,6 @@ func main() {
 	})
 	CLI.Prefix = func() string {
 		return DBName() + " > "
-	}
-
-	if len(initDB) != 0 {
-		core.Open(initDB + ".db")
 	}
 
 	if len(cmd) != 0 {

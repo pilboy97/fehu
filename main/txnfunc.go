@@ -35,7 +35,7 @@ func ParseTxnPattern(pat string) []Pattern {
 		panic(ErrWrongTxnPattern)
 	}
 
-	rexp = `^(?P<name>~?(\p{L}(\p{L}|\d)*:)*(\p{L}(\p{L}|\d)*))(<|>)(?P<num>(-|\+)?\d+(\.\d+)?)$`
+	rexp = `^(?P<name>~?((\p{L}|_)(\p{L}|\d|_)*:)*((\p{L}|_)(\p{L}|\d|_)*))(<|>)(?P<num>(-|\+)?\d+(\.\d+)?)$`
 	re := regexp.MustCompile(rexp)
 
 	records := strings.Split(pat, ";")

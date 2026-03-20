@@ -40,10 +40,11 @@ func Tokenize(str string) []Token {
 		var tok Token
 
 		switch {
-		case runes[i] == '\'':
+		case runes[i] == '\'' || runes[i] == '"':
+			quote := runes[i]
 			var done = false
 			for j := i + 1; j < len(runes); j++ {
-				if runes[j] == '\'' {
+				if runes[j] == quote {
 					str = string(runes[i+1 : j])
 
 					tok.Sym = STR

@@ -38,6 +38,12 @@ var defState = &cli.State{
 	Pat:    "^def$",
 	Param:  2,
 }
+var mcpState = &cli.State{
+	Action: true,
+	Name:   "mcp",
+	Manual: "start the mcp server for AI integration",
+	Pat:    "^mcp$",
+}
 var newState = &cli.State{
 	Name:   "new",
 	Manual: "create something",
@@ -162,7 +168,7 @@ var getTxnState = &cli.State{
 			Name:    "save",
 			Manual:  "save table",
 			NamePat: "^(s|save)$",
-			ValPat:  `^~?(\p{L}(\p{L}|\d)*:)*(\p{L}(\p{L}|\d)*)$`,
+			ValPat:  `^~?((\p{L}|_)(\p{L}|\d|_)*:)*((\p{L}|_)(\p{L}|\d|_)*)$`,
 		},
 	},
 }
@@ -177,7 +183,7 @@ var getTxnByIDState = &cli.State{
 			Name:    "save",
 			Manual:  "save table",
 			NamePat: "^(s|save)$",
-			ValPat:  `^~?(\p{L}(\p{L}|\d)*:)*(\p{L}(\p{L}|\d)*)$`,
+			ValPat:  `^~?((\p{L}|_)(\p{L}|\d|_)*:)*((\p{L}|_)(\p{L}|\d|_)*)$`,
 		},
 	},
 }
@@ -192,7 +198,7 @@ var getTxnByTimeState = &cli.State{
 			Name:    "save",
 			Manual:  "save table",
 			NamePat: "^(s|save)$",
-			ValPat:  `^~?(\p{L}(\p{L}|\d)*:)*(\p{L}(\p{L}|\d)*)$`,
+			ValPat:  `^~?((\p{L}|_)(\p{L}|\d|_)*:)*((\p{L}|_)(\p{L}|\d|_)*)$`,
 		},
 	},
 }
@@ -207,7 +213,7 @@ var getTxnByDescState = &cli.State{
 			Name:    "save",
 			Manual:  "save table",
 			NamePat: "^(s|save)$",
-			ValPat:  `^~?(\p{L}(\p{L}|\d)*:)*(\p{L}(\p{L}|\d)*)$`,
+			ValPat:  `^~?((\p{L}|_)(\p{L}|\d|_)*:)*((\p{L}|_)(\p{L}|\d|_)*)$`,
 		},
 	},
 }
@@ -318,6 +324,8 @@ func init() {
 
 	rootState.SetNext(defState)
 	rootState.SetNext(calcState)
+
+	rootState.SetNext(mcpState)
 
 	rootState.SetNext(newState)
 	rootState.SetNext(getState)

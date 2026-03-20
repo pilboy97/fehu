@@ -147,8 +147,13 @@ func AltTxn(tid int64, desc *string, timestamp *time.Time) int64 {
 		return -1
 	}
 	if desc != nil {
+		_, err := DB.Exec(`delete from tagtxn where tid=?`, tid)
+		if err != nil {
+			panic(err)
+		}
+
 		stmt := `update Txn set desc=? where id=?`
-		_, err := DB.Exec(stmt, desc, tid)
+		_, err = DB.Exec(stmt, desc, tid)
 		if err != nil {
 			panic(err)
 		}
@@ -161,7 +166,9 @@ func AltTxn(tid int64, desc *string, timestamp *time.Time) int64 {
 		}
 	}
 
-	CreateTagInDesc(GetAccByID(tid).Desc, nil, []int64{tid})
+	if desc != nil {
+		CreateTagInDesc(*desc, nil, []int64{tid})
+	}
 	return tid
 }
 func AltTxnRecord(tid int64, pat []Record) int64 {

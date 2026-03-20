@@ -165,14 +165,19 @@ func AltAcc(name string, desc *string) int64 {
 	}
 
 	if desc != nil {
-		stmt := `update acc set desc=? where id=?`
-		_, err := DB.Exec(stmt, desc, ID)
+		_, err := DB.Exec(`delete from tagacc where aid=?`, ID)
 		if err != nil {
 			panic(err)
 		}
-	}
 
-	CreateTagInDesc(GetAccByID(ID).Desc, []int64{ID}, nil)
+		stmt := `update acc set desc=? where id=?`
+		_, err = DB.Exec(stmt, desc, ID)
+		if err != nil {
+			panic(err)
+		}
+
+		CreateTagInDesc(*desc, []int64{ID}, nil)
+	}
 
 	return ID
 }
