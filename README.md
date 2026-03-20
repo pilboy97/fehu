@@ -191,7 +191,7 @@ Add the following to your `claude_desktop_config.json`:
   "mcpServers": {
     "fehu": {
       "command": "/path/to/fehu",
-      "args": ["-mcp", "-d", "mybudget"]
+      "args": ["-mcp"]
     }
   }
 }
