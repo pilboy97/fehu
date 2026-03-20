@@ -292,62 +292,94 @@ def <name> <expression>
 | `close` | Close the current database |
 | `quit` | Exit Fehu |
 
----
+# Fehu Best Practice Guide
 
-## Best Practice Guide
+## 1. Account Structure Philosophy
 
-### 1. Default Account Structure
+Fehu supports **hierarchical account names** using colon-separated levels. Design your account tree to match your real life — the more specific, the better.
 
-#### Assets — what you own
 ```
-asset:bank            # Bank account
-asset:cash            # Cash on hand
-asset:savings         # Savings / time deposits
-asset:investment      # Stocks, funds, crypto
-asset:realestate      # Real estate
-asset:car             # Vehicles
+asset:bank:chase        # Chase checking
+asset:bank:barclays     # Barclays savings
+asset:card:visa         # Visa credit card
+asset:investment:stock:aapl  # Apple stock
 ```
 
-#### Liabilities — what you owe
+Use wildcard patterns in `calc` to aggregate across levels:
 ```
-liability:creditcard  # Credit card balance
-liability:loan        # Personal loans
-liability:mortgage    # Mortgage
-```
-
-#### Equity — net worth tracking
-```
-equity:opening        # Opening balance (use when starting a new ledger)
-```
-
-#### Income — money coming in
-```
-income:salary         # Salary
-income:freelance      # Freelance / side income
-income:dividend       # Dividends
-income:interest       # Interest income
-income:rental         # Rental income
-income:capital_gain   # Realized capital gains
-```
-
-#### Expenses — money going out
-```
-expense:food          # Food & dining
-expense:transport     # Transportation
-expense:housing       # Rent / maintenance
-expense:utility       # Utilities
-expense:health        # Healthcare
-expense:education     # Education
-expense:culture       # Entertainment & leisure
-expense:clothing      # Clothing
-expense:subscription  # Subscriptions
+calc sum(acc(__all__, 'asset:bank*'))        # All bank accounts
+calc sum(acc(__all__, 'asset:investment*'))  # All investments
+calc sum(acc(__all__, 'liability:card*'))    # All credit cards
 ```
 
 ---
 
-### 2. Recommended `def` Variables
+## 2. Default Account Structure
 
-Add these to your workflow to track net worth and profitability at a glance.
+### Assets — what you own
+```
+# Bank accounts (name by your actual bank)
+asset:bank:checking     # e.g. asset:bank:chase, asset:bank:barclays
+asset:bank:savings      # e.g. asset:bank:marcus, asset:bank:ally
+
+# Cash
+asset:cash              # Physical cash #cash
+
+# Investments (name by instrument)
+asset:investment:stock:aapl   # Apple stock #investment
+asset:investment:etf:spy      # S&P500 ETF #investment
+asset:investment:crypto:btc   # Bitcoin #investment
+
+# Real assets
+asset:realestate        # Real estate #illiquid
+asset:car               # Vehicle #illiquid
+asset:appliance         # Home appliances #illiquid
+```
+
+### Liabilities — what you owe
+```
+# Credit cards (name by your actual card)
+liability:card:visa     # Visa credit card #liability
+liability:card:amex     # Amex credit card #liability
+
+# Loans
+liability:loan:student  # Student loan #liability
+liability:loan:auto     # Auto loan #liability
+liability:mortgage      # Mortgage #liability
+```
+
+### Equity
+```
+equity:opening          # Opening balance (use when starting a new ledger)
+```
+
+### Income — money coming in
+```
+income:salary           # Salary
+income:freelance        # Freelance / side income
+income:dividend         # Dividends #investment
+income:interest         # Interest income #cash
+income:rental           # Rental income #illiquid
+income:capital_gain     # Realized capital gains #investment
+income:unrealized_gain  # Unrealized gains #unrealized #investment
+```
+
+### Expenses — money going out
+```
+expense:food            # Food & dining
+expense:transport       # Transportation
+expense:housing         # Rent / maintenance
+expense:utility         # Utilities
+expense:health          # Healthcare
+expense:education       # Education
+expense:culture         # Entertainment & leisure
+expense:clothing        # Clothing
+expense:subscription    # Subscriptions
+```
+
+---
+
+## 3. Recommended `def` Variables
 
 ```
 # Net worth (Assets - Liabilities)
@@ -362,107 +394,123 @@ def total_assets sum(acc(__all__, 'asset*'))
 # Total liabilities
 def total_liabilities sum(acc(__all__, 'liability*'))
 
-# Total expenses
-def total_expenses sum(acc(__all__, 'expense*'))
+# Total liquid assets (tagged #cash)
+def liquid sum(atag(__all__, 'cash'))
 
-# Total income
-def total_income sum(acc(__all__, 'income*'))
-```
-
-Usage:
-```
-calc net_worth
-calc net_income
+# Real net worth (excluding #NOTYET future transactions)
+def settled xor(__all__, ttag(__all__, 'NOTYET'))
+def real_net_worth sum(acc(settled, 'asset*')) - sum(acc(settled, 'liability*'))
 ```
 
 ---
 
-### 3. Tag Conventions
+## 4. Tag Conventions
 
-#### Future / Pending transactions
+### Transaction status
 | Tag | Meaning |
 |-----|---------|
-| `#NOTYET` | Transaction recorded but not yet settled (e.g. future installments) |
-| `#PENDING` | Awaiting confirmation (e.g. pending transfers) |
+| `#NOTYET` | Recorded but not yet settled (e.g. future installments) |
+| `#PENDING` | Awaiting confirmation |
 
-#### Asset classification
+### Asset classification (on account `desc`)
 | Tag | Meaning |
 |-----|---------|
-| `#cash` | Cash-equivalent assets (bank, cash on hand) |
+| `#cash` | Cash-equivalent (liquid) assets |
 | `#illiquid` | Hard-to-liquidate assets (real estate, car) |
-| `#investment` | Investment assets subject to market value changes |
+| `#investment` | Investment assets subject to market fluctuation |
+| `#liability` | Liability accounts |
 
-#### Unrealized gains & losses
+### Gains & losses
 | Tag | Meaning |
 |-----|---------|
-| `#unrealized` | Value change not yet realized (e.g. stock price increase) |
-| `#realized` | Gain or loss actually settled |
+| `#unrealized` | Paper gain/loss, not yet settled |
+| `#realized` | Actually settled gain/loss |
+
+### Lifestyle
+| Tag | Meaning |
+|-----|---------|
+| `#fixed` | Recurring fixed expense (rent, subscription) |
+| `#variable` | Variable expense |
 
 ---
 
-### 4. Tracking Patterns
+## 5. Common Patterns
 
-#### Cash-equivalent assets
+### Starting a new ledger
 ```
-# See total liquid assets
+# Record opening balances
+new txn -d="Opening balance" asset:bank:chase<5000;liability:card:visa<1000;equity:opening>6000
+```
+
+Or with AI:
+> "I want to start a budget. I have $5,000 in Chase and $1,000 in Visa debt."
+
+### Installment purchases
+```
+# Purchase
+new txn -d="iPhone 15 installment #NOTYET" asset:appliance<1200;liability:card:visa>1200
+
+# Monthly payments (12 months)
+# Use batch_create_transactions for all 12 at once with #NOTYET
+# Remove #NOTYET each month as payments clear
+```
+
+### Investment tracking
+```
+# Acquisition
+new txn -d="AAPL 10 shares @150 #investment" asset:investment:stock:aapl<1500;asset:bank:chase>1500
+
+# Unrealized gain (price rises to $170)
+new txn -d="AAPL unrealized gain #unrealized" asset:investment:stock:aapl<200;income:unrealized_gain>200
+
+# Realized gain (sell)
+new txn -d="AAPL sold #realized" asset:bank:chase<1700;asset:investment:stock:aapl>1700
+alt txn -d="AAPL realized gain #realized" <unrealized_txn_id>
+```
+
+### Monthly summary
+```
+# This month's income vs expenses
+calc sum(acc(between(__all__, '2024-03-01;00:00:00', '2024-03-31;23:59:59'), 'income*'))
+calc sum(acc(between(__all__, '2024-03-01;00:00:00', '2024-03-31;23:59:59'), 'expense*'))
+
+# Or ask AI: "Give me this month's financial summary"
+```
+
+### Liquid assets only
+```
 calc sum(atag(__all__, 'cash'))
 ```
 
-#### Unrealized gains/losses
+### Exclude future transactions from net worth
 ```
-# Record a stock price increase (not yet sold)
-new acc -d="Unrealized gain on stocks #unrealized #investment" income:capital_gain
-new txn -d="AAPL price increase #unrealized" asset:investment<500000;income:capital_gain>500000
-
-# When sold, mark as realized
-alt txn -d="AAPL sold #realized" <txn_id>
-```
-
-#### Exclude future transactions from current net worth
-```
-# Net worth excluding #NOTYET transactions
-def settled_txns xor(__all__, ttag(__all__, 'NOTYET'))
-def real_net_worth sum(acc(settled_txns, 'asset*')) - sum(acc(settled_txns, 'liability*'))
-calc real_net_worth
+def settled xor(__all__, ttag(__all__, 'NOTYET'))
+calc sum(acc(settled, 'asset*')) - sum(acc(settled, 'liability*'))
 ```
 
 ---
 
-### 5. Example: Starting a New Ledger
+## 6. First Time Setup with AI
 
-```
-# 1. Open your database
-open mybudget
+Just say:
 
-# 2. Create accounts
-new acc asset:bank
-new acc asset:cash
-new acc liability:creditcard
-new acc equity:opening
-new acc income:salary
-new acc expense:food
-new acc expense:transport
+> "I want to start a personal budget. Set up default accounts for me."
 
-# 3. Record opening balances
-new txn -d="Opening balance" asset:bank<3000000;asset:cash<500000;equity:opening>3500000
+The AI will:
+1. Create all default accounts in one call (`batch_create_accounts`)
+2. Ask for your opening balances
+3. Record them as a single opening transaction
+4. Show your initial net worth via `get_summary`
 
-# 4. Set up def variables
-def net_worth sum(acc(__all__, 'asset*')) - sum(acc(__all__, 'liability*'))
-def net_income sum(acc(__all__, 'income*')) - sum(acc(__all__, 'expense*'))
+## 7. Tips
 
-# 5. Check your position
-calc net_worth
-```
-
----
-
-### 6. Tips
-
-- **Always balance**: every transaction must sum to zero across all entries.
-- **Use `#NOTYET`** for future installments or scheduled payments so they don't distort your current net worth.
-- **Use `#unrealized`** for paper gains/losses on investments — convert to `#realized` when actually settled.
-- **Use `atag` vs `ttag`**: `atag` filters by account description tags, `ttag` filters by transaction description tags.
-- **String literals** in `calc` expressions use **single quotes** (`'expense*'`), not double quotes.
+- **Design your account tree first** — think about what level of detail you need before adding accounts. `asset:bank` is fine for one account; use `asset:bank:chase` if you have multiple banks.
+- **Always balance** — every transaction must sum to zero across all entries.
+- **Use `#NOTYET`** for future installments so they don't distort your current net worth.
+- **Use `#unrealized`** for paper gains/losses — convert to `#realized` when settled.
+- **`atag` vs `ttag`** — `atag` filters by account description tags, `ttag` filters by transaction description tags.
+- **String literals** in `calc` use **single quotes**: `sum(acc(__all__, 'expense*'))`.
+- **Wildcards** — `*` matches any suffix, `?` matches a single character: `asset:bank*` matches all bank accounts.
 
 ---
 
