@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -703,13 +704,24 @@ func handleCloseDB(ctx context.Context, request mcp.CallToolRequest) (res *mcp.C
 }
 
 func handleGetReadme(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// 실행 위치에 따라 README.md 경로가 다를 수 있으므로 현재 경로와 상위 폴더를 모두 확인합니다.
+	// 1. 현재 작업 경로에서 확인
 	content, err := os.ReadFile("README.md")
-	if err != nil {
-		content, err = os.ReadFile("../README.md")
-		if err != nil {
-			return mcp.NewToolResultText("Error: Could not find README.md file."), nil
+	if err == nil {
+		return mcp.NewToolResultText(string(content)), nil
+	}
+
+	// 2. 상위 폴더에서 확인 (개발 환경 고려)
+	content, err = os.ReadFile("../README.md")
+	if err == nil {
+		return mcp.NewToolResultText(string(content)), nil
+	}
+
+	// 3. 실행 파일이 위치한 폴더에서 확인 (배포 환경 고려)
+	if exe, err := os.Executable(); err == nil {
+		if content, err := os.ReadFile(filepath.Join(filepath.Dir(exe), "README.md")); err == nil {
+			return mcp.NewToolResultText(string(content)), nil
 		}
 	}
-	return mcp.NewToolResultText(string(content)), nil
+
+	return mcp.NewToolResultText("Error: Could not find README.md file. Please ensure it is in the same directory as the executable."), nil
 }

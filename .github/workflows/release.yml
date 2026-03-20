@@ -48,8 +48,19 @@ jobs:
           CGO_ENABLED: 1 # Required for go-sqlite3
         run: go build -o ${{ matrix.bin }} ./main/
 
+      - name: Package Release
+        shell: bash
+        run: |
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            zip fehu-${{ matrix.goos }}-${{ matrix.goarch }}.zip ${{ matrix.bin }} README.md
+          else
+            tar -czvf fehu-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz ${{ matrix.bin }} README.md
+          fi
+
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.bin }}
+          files: |
+            *.zip
+            *.tar.gz
           generate_release_notes: true
