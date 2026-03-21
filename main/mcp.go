@@ -120,7 +120,6 @@ func StartMCPServer() error {
 
 	// 도구(Tool): 트랜잭션 레코드(금액/계정) 수정
 	updateTxnRecordTool := mcp.NewTool("update_transaction_record",
-		mcp.WithDescription("Replace all records (account flows and amounts) of an existing transaction"),
 		mcp.WithDescription("Replace all records (account flows and amounts) of an existing transaction. USE THIS INSTEAD OF deleting and recreating a transaction when changing amounts or accounts."),
 		mcp.WithNumber("id", mcp.Required(), mcp.Description("Transaction ID to update")),
 		mcp.WithString("record", mcp.Required(), mcp.Description("New record format (e.g. income:salary<50000;asset:bank>50000)")),

@@ -132,6 +132,8 @@ func main() {
 		core.DB.Close()
 	}
 }
+
+// DBName returns the base name of the currently opened database file without the extension.
 func DBName() string {
 	path := filepath.Base(env.Path())
 	return strings.SplitN(path, ".", 2)[0]

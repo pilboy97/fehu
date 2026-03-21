@@ -208,17 +208,30 @@ Add the following to your `claude_desktop_config.json`:
 | Tool | Description |
 |------|-------------|
 | `open_db` | Open or create a database |
+| `close_db` | Close the current database |
 | `get_accounts` | List accounts with balances (filterable by name/desc) |
 | `create_account` | Create a new account |
+| `batch_create_accounts` | Create multiple accounts at once using a JSON array |
+| `update_account` | Update an existing account's name or description |
+| `batch_update_accounts` | Update multiple accounts at once using a JSON array |
 | `delete_account` | Delete an account |
 | `get_transactions` | List transactions (filterable by desc, id, time range) |
 | `create_transaction` | Create a new transaction |
 | `batch_create_transactions` | Create multiple transactions at once using a JSON array |
 | `update_transaction` | Update transaction description or time |
+| `batch_update_transactions` | Update multiple transactions at once using a JSON array |
+| `update_transaction_record` | Replace all records (account flows and amounts) of an existing transaction |
+| `batch_update_transaction_records` | Replace records of multiple transactions at once using a JSON array |
 | `delete_transaction` | Delete a transaction |
+| `batch_delete_transactions` | Delete multiple transactions at once using a JSON array of IDs |
 | `get_tags` | List all tags |
+| `update_tag` | Update an existing tag's name or description |
+| `batch_update_tags` | Update multiple tags at once using a JSON array |
 | `delete_tag` | Delete a tag |
+| `set_currency` | Change the active currency code |
 | `calc` | Evaluate a calc expression |
+| `def_calc` | Evaluate a calc expression and save the result as a named variable |
+| `get_summary` | Get a quick financial summary (assets, liabilities, equity, net worth, etc.) |
 | `get_readme` | Retrieve this documentation |
 
 ### Notes
@@ -552,7 +565,7 @@ The AI will:
 
 Fehu is split into three modules:
 
-### `cmd/fehu` — Application layer
+### `main` — Application layer
 Entry point and command handlers. Wires together the `cli` and `core` packages.
 
 ```
