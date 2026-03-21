@@ -89,7 +89,7 @@ func StartMCPServer() error {
 		mcp.WithDescription("Get a list of transactions in the Fehu database"),
 		mcp.WithNumber("id", mcp.Description("Optional exact transaction ID to fetch")),
 		mcp.WithString("desc", mcp.Description("Optional description keyword to filter by")),
-		mcp.WithString("time_range", mcp.Description("Optional time range filter (e.g. '2024-01-01;00:00:00~2024-12-31;23:59:59')")),
+		mcp.WithString("time_range", mcp.Description("Optional time range filter in 'YYYY-MM-DD;HH:MM:SS~YYYY-MM-DD;HH:MM:SS' format.")),
 	)
 	s.AddTool(getTxnTool, handleGetTransactions)
 
@@ -98,7 +98,7 @@ func StartMCPServer() error {
 		mcp.WithDescription("Create a new transaction"),
 		mcp.WithString("record", mcp.Required(), mcp.Description("Record format (e.g. income:salary<50000;asset:bank>50000)")),
 		mcp.WithString("desc", mcp.Description("Optional description for the transaction (can include #tags)")),
-		mcp.WithString("time", mcp.Description("Optional time (YYYY-MM-DD;HH:MM:SS format)")),
+		mcp.WithString("time", mcp.Description("Optional time in 'YYYY-MM-DD;HH:MM:SS' format. Defaults to current time.")),
 	)
 	s.AddTool(createTxnTool, handleCreateTransaction)
 
@@ -114,7 +114,7 @@ func StartMCPServer() error {
 		mcp.WithDescription("Update an existing transaction's description or time"),
 		mcp.WithNumber("id", mcp.Required(), mcp.Description("Transaction ID to update")),
 		mcp.WithString("desc", mcp.Description("New description for the transaction (can include #tags)")),
-		mcp.WithString("time", mcp.Description("New time (YYYY-MM-DD;HH:MM:SS format)")),
+		mcp.WithString("time", mcp.Description("New time in 'YYYY-MM-DD;HH:MM:SS' format.")),
 	)
 	s.AddTool(updateTxnTool, handleUpdateTransaction)
 
@@ -410,14 +410,14 @@ func handleGetTransactions(ctx context.Context, request mcp.CallToolRequest) (re
 		ret = core.GetTxnByDesc(desc)
 	} else if timeRange != "" {
 		tokens := strings.Split(timeRange, "~")
-		var A, B *time.Time
+		var A, B *int64
 		if len(tokens) > 0 && tokens[0] != "" {
-			t := core.ParseTime(tokens[0])
-			A = &t
+			ts := core.ParseTime(tokens[0])
+			A = &ts
 		}
 		if len(tokens) > 1 && tokens[1] != "" {
-			t := core.ParseTime(tokens[1])
-			B = &t
+			ts := core.ParseTime(tokens[1])
+			B = &ts
 		}
 		ret = core.GetTxnByTime(A, B)
 	} else {
@@ -439,12 +439,12 @@ func handleCreateTransaction(ctx context.Context, request mcp.CallToolRequest) (
 	timeStr, _ := args["time"].(string)
 
 	pats := ParseTxnPattern(recordStr)
-	t := time.Now()
+	timestamp := time.Now().UTC().Unix()
 	if timeStr != "" {
-		t = core.ParseTime(timeStr)
+		timestamp = core.ParseTime(timeStr)
 	}
 
-	tid := core.NewTxn(desc, t)
+	tid := core.NewTxn(desc, timestamp)
 	for _, p := range pats {
 		aid := core.GetAccByName(p.Name)
 		if aid == -1 {
@@ -478,12 +478,12 @@ func handleBatchCreateTransactions(ctx context.Context, request mcp.CallToolRequ
 	var createdIDs []string
 	for _, t := range txns {
 		pats := ParseTxnPattern(t.Record)
-		ts := time.Now()
+		timestamp := time.Now().UTC().Unix()
 		if t.Time != "" {
-			ts = core.ParseTime(t.Time)
+			timestamp = core.ParseTime(t.Time)
 		}
 
-		tid := core.NewTxn(t.Desc, ts)
+		tid := core.NewTxn(t.Desc, timestamp)
 		for _, p := range pats {
 			aid := core.GetAccByName(p.Name)
 			if aid == -1 {
@@ -523,11 +523,11 @@ func handleUpdateTransaction(ctx context.Context, request mcp.CallToolRequest) (
 		}
 	}
 
-	var timePtr *time.Time
+	var timePtr *int64
 	if timeArg, ok := args["time"]; ok {
 		if timeStr, ok := timeArg.(string); ok && timeStr != "" {
-			t := core.ParseTime(timeStr)
-			timePtr = &t
+			ts := core.ParseTime(timeStr)
+			timePtr = &ts
 		}
 	}
 
@@ -631,10 +631,10 @@ func handleBatchUpdateTransactions(ctx context.Context, request mcp.CallToolRequ
 
 	var updatedIDs []string
 	for _, u := range updates {
-		var timePtr *time.Time
+		var timePtr *int64
 		if u.Time != nil && *u.Time != "" {
-			t := core.ParseTime(*u.Time)
-			timePtr = &t
+			ts := core.ParseTime(*u.Time)
+			timePtr = &ts
 		}
 		if core.AltTxn(u.ID, u.Desc, timePtr) == -1 {
 			return mcp.NewToolResultText(fmt.Sprintf("Batch transaction update failed: Transaction #%d not found.", u.ID)), nil
