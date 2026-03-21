@@ -24,6 +24,7 @@ const (
 	OR
 	FCALL
 	COMMA
+	NOW
 )
 
 var SymbolDesc = map[int]string{
@@ -50,6 +51,7 @@ var SymbolDesc = map[int]string{
 	OR:     "or",
 	FCALL:  "func call",
 	COMMA:  ",",
+	NOW:    "__now__",
 }
 var SymbolParam = map[int]int{
 	ADD:   2,
@@ -102,9 +104,10 @@ var Ops = map[string]int{
 	"||": OR,
 }
 var RWords = map[string]int{
-	"def":   DEF,
-	"true":  TRUE,
-	"false": FALSE,
-	"and":   AND,
-	"or":    OR,
+	"def":     DEF,
+	"true":    TRUE,
+	"false":   FALSE,
+	"and":     AND,
+	"or":      OR,
+	"__now__": NOW,
 }

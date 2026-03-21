@@ -82,7 +82,7 @@ func Search(str, ptn string) bool {
 
 	return false
 }
-func ParseTime(str string) time.Time {
+func ParseTime(str string) int64 {
 	ret, err := time.ParseInLocation(
 		TimeFmt,
 		str,
@@ -92,19 +92,19 @@ func ParseTime(str string) time.Time {
 		panic(err)
 	}
 
-	return ret
+	return ret.UTC().Unix()
 }
 
 func ParsePeriod(st, ed string) Period {
-	var A, B *time.Time
+	var A, B *int64
 
 	if len(st) != 0 {
-		A = &time.Time{}
-		*A = ParseTime(st)
+		ts := ParseTime(st)
+		A = &ts
 	}
 	if len(ed) != 0 {
-		B = &time.Time{}
-		*B = ParseTime(ed)
+		ts := ParseTime(ed)
+		B = &ts
 	}
 
 	return Period{St: A, Ed: B}

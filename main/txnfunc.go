@@ -105,27 +105,32 @@ func ParseTxnPattern(pat string) []Pattern {
 }
 
 func NewTxn(cmd cli.Cmd) {
-	var txn core.Txn
+	var desc string
+	var timestamp int64
 	var pat = ParseTxnPattern(cmd.Pa[0])
 
-	txn.Time = time.Now()
+	timestamp = time.Now().UTC().Unix()
 
 	for _, fl := range cmd.Fl {
 		switch fl.F.Name {
 		case "desc":
-			txn.Desc = fl.V
+			desc = fl.V
 		case "time":
-			txn.Time = core.ParseTime(fl.V)
+			timestamp = core.ParseTime(fl.V)
 		}
 	}
 
-	txn.ID = core.NewTxn(txn.Desc, txn.Time)
+	txnID := core.NewTxn(desc, timestamp)
 	for _, p := range pat {
-		aid := core.SureID(core.GetAccByName(p.Name))
-		core.NewRecord(txn.ID, aid, p.Amount)
+		aid := core.GetAccByName(p.Name)
+		if aid == -1 {
+			core.DelTxn(txnID) // 롤백
+			panic(fmt.Errorf("account '%s' not found", p.Name))
+		}
+		core.NewRecord(txnID, aid, p.Amount)
 	}
 
-	fmt.Printf("txn #%d created\n", txn.ID)
+	fmt.Printf("txn #%d created\n", txnID)
 }
 func GetTxn(cmd cli.Cmd) {
 	var Name string
@@ -197,22 +202,15 @@ func GetTxnByTime(cmd cli.Cmd) {
 		panic(ErrWrongPeriodPattern)
 	}
 
-	var A, B *time.Time
-	var err error
+	var A, B *int64
 
 	if len(tokens[0]) != 0 {
-		A = &time.Time{}
-		*A, err = time.Parse(core.TimeFmt, tokens[0])
-		if err != nil {
-			panic(err)
-		}
+		ts := core.ParseTime(tokens[0])
+		A = &ts
 	}
 	if len(tokens[1]) != 0 {
-		B = &time.Time{}
-		*B, err = time.Parse(core.TimeFmt, tokens[1])
-		if err != nil {
-			panic(err)
-		}
+		ts := core.ParseTime(tokens[1])
+		B = &ts
 	}
 
 	var ret = core.GetTxnByTime(A, B)
@@ -228,18 +226,14 @@ func AltTxn(cmd cli.Cmd) {
 	}
 	core.SureID(id)
 	var desc *string = nil
-	var timestamp *time.Time = nil
+	var timestamp *int64 = nil
 	for i, fl := range cmd.Fl {
 		switch fl.F.Name {
 		case "desc":
 			desc = &cmd.Fl[i].V
 		case "time":
-			Time, err := time.Parse(core.TimeFmt, fl.V)
-			timestamp = &Time
-
-			if err != nil {
-				panic(err)
-			}
+			ts := core.ParseTime(fl.V)
+			timestamp = &ts
 		}
 	}
 

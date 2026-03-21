@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"time"
 )
 
 // 추상구문트리
@@ -88,6 +89,12 @@ func NewAst(stmt []Token) *Ast {
 			node[i].V = Bool(false)
 		case NAME:
 			node[i].V = Variable{Name: stmt[i].Str}
+		case NOW:
+			node[i].V = Computed{
+				Fn: func() Value {
+					return Num(float64(time.Now().UTC().Unix()))
+				},
+			}
 		default:
 			node[i].V = Void{}
 		}

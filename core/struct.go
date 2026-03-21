@@ -1,8 +1,6 @@
 package core
 
 import (
-	"time"
-
 	"github.com/Rhymond/go-money"
 )
 
@@ -13,8 +11,8 @@ type Acc struct {
 }
 type Txn struct {
 	ID     int64
-	Desc   string
-	Time   time.Time
+	Desc   string // description
+	Time   int64  // UTC Unix timestamp
 	Record []Record
 }
 type Record struct {

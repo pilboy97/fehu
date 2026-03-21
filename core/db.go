@@ -56,8 +56,8 @@ func Open(path string) {
 
 	createTxnStmt := `create table if not exists txn(
 		id integer not null primary key autoincrement,
-		desc text,
-		time timestamp not null default CURRENT_TIMESTAMP
+		"desc" text,
+		"time" integer not null
 	)`
 
 	_, err = DB.Exec(createTxnStmt)

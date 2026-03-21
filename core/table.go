@@ -1,9 +1,6 @@
 package core
 
-import (
-	"ast"
-	"time"
-)
+import "ast"
 
 type Table struct {
 	ids map[int64]struct{}
@@ -105,33 +102,30 @@ func (t *Table) Acc(ptn string) ast.List {
 
 	return ret
 }
-func (t *Table) FilterPeriod(st, ed *time.Time) *Table {
+func (t *Table) FilterPeriod(st, ed *int64) *Table {
 	var ret = make([]int64, 0, len(t.ids))
 
 	if st != nil && ed != nil {
-		*st, *ed = st.Local(), ed.Local()
 		for tid := range t.ids {
 			txn := GetTxnByID(tid)
 
-			if st.Before(txn.Time) && txn.Time.Before(*ed) {
+			if *st < txn.Time && txn.Time < *ed {
 				ret = append(ret, txn.ID)
 			}
 		}
 	} else if st != nil {
-		*st = st.Local()
 		for tid := range t.ids {
 			txn := GetTxnByID(tid)
 
-			if st.Before(txn.Time) {
+			if *st < txn.Time {
 				ret = append(ret, txn.ID)
 			}
 		}
 	} else if ed != nil {
-		*ed = st.Local()
 		for tid := range t.ids {
 			txn := GetTxnByID(tid)
 
-			if txn.Time.Before(*ed) {
+			if txn.Time < *ed {
 				ret = append(ret, txn.ID)
 			}
 		}
@@ -192,7 +186,7 @@ func (t *Table) TTag(name string) *Table {
 }
 
 type Period struct {
-	St, Ed *time.Time
+	St, Ed *int64
 }
 
 func init() {

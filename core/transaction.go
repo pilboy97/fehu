@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func NewTxn(desc string, timestamp time.Time) int64 {
+func NewTxn(desc string, timestamp int64) int64 {
 	ChkDB()
 
 	stmt := `insert into txn(desc, time) values(?,?)`
@@ -74,15 +74,15 @@ func GetTxnByID(tid int64) Txn {
 
 	return ret
 }
-func GetTxnByTime(st *time.Time, ed *time.Time) []int64 {
+func GetTxnByTime(st *int64, ed *int64) []int64 {
 	ChkDB()
 
 	var ret []int64 = make([]int64, 0)
 	var rows *sql.Rows
 	var err error
 
-	if st != nil && ed != nil && st.After(*ed) {
-		st, ed = ed, st
+	if st != nil && ed != nil && *st > *ed {
+		*st, *ed = *ed, *st
 	}
 
 	switch {
@@ -142,7 +142,7 @@ func GetTxnByDesc(desc string) []int64 {
 
 	return ret
 }
-func AltTxn(tid int64, desc *string, timestamp *time.Time) int64 {
+func AltTxn(tid int64, desc *string, timestamp *int64) int64 {
 	if GetTxnByID(tid).ID == -1 {
 		return -1
 	}
@@ -233,7 +233,10 @@ func PrintTxn(id int64) string {
 	}
 	var records = GetRecordByTID(id)
 
-	ret = append(ret, fmt.Sprintf("%8d|%24s|                        |        |%16s", txn.ID, txn.Time.Format(TimeFmt), txn.Desc))
+	// UTC 타임스탬프를 로컬 시간으로 변환하여 출력
+	t := time.Unix(txn.Time, 0).Local()
+
+	ret = append(ret, fmt.Sprintf("%8d|%24s|                        |        |%16s", txn.ID, t.Format(TimeFmt), txn.Desc))
 	for _, ch := range records {
 		ret = append(ret, PrintRecord(ch))
 	}
