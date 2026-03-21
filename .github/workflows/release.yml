@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*' # Trigger on tags like v1.1.0
+      - '*'
 
 permissions:
   contents: write # Required for creating GitHub Releases
