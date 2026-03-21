@@ -236,6 +236,7 @@ Add the following to your `claude_desktop_config.json`:
 
 ### Notes
 
+- **Use batch operations** (`batch_create_*`, `batch_update_*`, etc.) whenever possible to perform multiple actions in a single request. This is significantly more efficient than sending individual commands for each item.
 - **String literals** in `calc` expressions must use **single quotes**: `sum(acc(__all__, 'expense*'))`
 - `open_db` with a relative path resolves from the directory of the `fehu` executable. Use absolute paths to avoid ambiguity.
 - **Setting the `FEHU_DB` environment variable is highly recommended** to ensure the database auto-reconnects and persists smoothly across MCP sessions.
