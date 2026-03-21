@@ -97,13 +97,12 @@ func Tokenize(str string) []Token {
 
 				i = len(runes)
 			}
-		case runes[i] == '_' || inRange(runes[i], 'a', 'z') || inRange(runes[i], 'A', 'Z'):
+		case runes[i] == '_' || unicode.IsLetter(runes[i]):
 			var done = false
 			for j := i + 1; j < len(runes); j++ {
 				if !(runes[j] == '_' ||
-					inRange(runes[j], '0', '9') ||
-					inRange(runes[j], 'a', 'z') ||
-					inRange(runes[j], 'A', 'Z')) {
+					unicode.IsDigit(runes[j]) ||
+					unicode.IsLetter(runes[j])) {
 					tok.Sym = NAME
 					tok.Str = string(runes[i:j])
 					tok.Location = len(ret)

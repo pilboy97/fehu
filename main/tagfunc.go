@@ -49,7 +49,7 @@ func AltTagRename(cmd cli.Cmd) {
 
 	core.SureName(new)
 
-	core.AltRenameTag(old, new)
+	core.SureID(core.AltRenameTag(old, new))
 }
 func DelTag(cmd cli.Cmd) {
 	core.SureID(core.DelTag(cmd.Pa[0]))

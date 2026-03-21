@@ -163,7 +163,7 @@ This creates (or opens) `mybudget.db` in the current directory. The schema is cr
 | `-d <n>` | Open a database on startup |
 | `-c "<command>"` | Execute a single command and exit |
 | `-b` | Print elapsed time after each command |
-| `-CODE <currency>` | Set currency code (default: `KRW`) |
+| `-CODE <currency>` | Set currency code (default: `USD`. Unknown codes like `BTC`, `ETH` auto-default to 8 decimals) |
 
 ```bash
 ./fehu -d mybudget -CODE USD
@@ -191,7 +191,10 @@ Add the following to your `claude_desktop_config.json`:
   "mcpServers": {
     "fehu": {
       "command": "/path/to/fehu",
-      "args": ["-mcp"]
+      "args": ["-mcp", "-CODE", "USD"],
+      "env": {
+        "FEHU_DB": "/absolute/path/to/mybudget"
+      }
     }
   }
 }
@@ -219,6 +222,8 @@ Add the following to your `claude_desktop_config.json`:
 
 - **String literals** in `calc` expressions must use **single quotes**: `sum(acc(__all__, 'expense*'))`
 - `open_db` with a relative path resolves from the directory of the `fehu` executable. Use absolute paths to avoid ambiguity.
+- **Setting the `FEHU_DB` environment variable is highly recommended** to ensure the database auto-reconnects and persists smoothly across MCP sessions.
+- **Set your preferred currency** by adding `"-CODE", "USD"` (or `KRW`, `BTC`, etc.) to the `args` array.
 - The MCP server communicates over **stdio** — it is designed to be launched as a subprocess by an MCP client, not run interactively.
 
 ---
@@ -290,6 +295,7 @@ def <name> <expression>
 |---------|-------------|
 | `open <name>` | Open (or create) a `.db` file |
 | `close` | Close the current database |
+| `alt code <currency>` | Change the active currency code |
 | `quit` | Exit Fehu |
 
 # Fehu Best Practice Guide
@@ -400,6 +406,31 @@ def liquid sum(atag(__all__, 'cash'))
 # Real net worth (excluding #NOTYET future transactions)
 def settled xor(__all__, ttag(__all__, 'NOTYET'))
 def real_net_worth sum(acc(settled, 'asset*')) - sum(acc(settled, 'liability*'))
+
+# Key Financial Indicators (%)
+# Savings Rate: (Net Income / Total Income) * 100
+def savings_rate (sum(acc(__all__, 'income*')) - sum(acc(__all__, 'expense*'))) / sum(acc(__all__, 'income*')) * 100
+
+# Engel Coefficient: (Food Expenses / Total Expenses) * 100
+def engel_coeff sum(acc(__all__, 'expense:food*')) / sum(acc(__all__, 'expense*')) * 100
+
+# Debt-to-Equity Ratio: (Total Liabilities / Net Worth) * 100
+def debt_to_equity sum(acc(__all__, 'liability*')) / (sum(acc(__all__, 'asset*')) - sum(acc(__all__, 'liability*'))) * 100
+
+# Investment Ratio: (Total Investments / Total Assets) * 100
+def investment_ratio sum(acc(__all__, 'asset:investment*')) / sum(acc(__all__, 'asset*')) * 100
+
+# Debt Ratio: (Total Liabilities / Total Assets) * 100
+def debt_ratio sum(acc(__all__, 'liability*')) / sum(acc(__all__, 'asset*')) * 100
+
+# Cash Ratio: (Liquid Assets / Total Liabilities) * 100
+def cash_ratio sum(atag(__all__, 'cash')) / sum(acc(__all__, 'liability*')) * 100
+
+# Fixed Expense Ratio: (Fixed Expenses / Total Expenses) * 100 (requires #fixed tag on accounts)
+def fixed_expense_ratio sum(atag(__all__, 'fixed')) / sum(acc(__all__, 'expense*')) * 100
+
+# FI (Financial Independence) Ratio: (Passive Income / Total Expenses) * 100 (requires #passive tag on income accounts)
+def fi_ratio sum(atag(__all__, 'passive')) / sum(acc(__all__, 'expense*')) * 100
 ```
 
 ---

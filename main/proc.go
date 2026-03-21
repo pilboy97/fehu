@@ -5,6 +5,8 @@ import (
 	"core"
 	"fmt"
 	"log"
+
+	"github.com/Rhymond/go-money"
 )
 
 func Proc(cmd cli.Cmd) error {
@@ -51,6 +53,8 @@ func Proc(cmd cli.Cmd) error {
 		AltAcc(cmd)
 	case altAccRenameState:
 		AltAccRename(cmd)
+	case altCodeState:
+		AltCode(cmd)
 	case delAccState:
 		DelAcc(cmd)
 
@@ -100,4 +104,12 @@ func Open(cmd cli.Cmd) {
 }
 func Close(cmd cli.Cmd) {
 	core.Close()
+}
+func AltCode(cmd cli.Cmd) {
+	code := cmd.Pa[0]
+	core.Code = code
+	if money.GetCurrency(core.Code) == nil {
+		money.AddCurrency(core.Code, core.Code+" ", "1 $", ".", ",", 8)
+	}
+	fmt.Printf("Currency code changed to %s\n", core.Code)
 }

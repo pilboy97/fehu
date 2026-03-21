@@ -52,7 +52,7 @@ func GetAccByID(aid int64) Acc {
 	ChkDB()
 
 	var ret Acc
-	stmt := `select id, name, desc from acc where id=? order by id`
+	stmt := `select id, name, desc from acc where id=?`
 	err := DB.QueryRow(stmt, aid).Scan(
 		&ret.ID,
 		&ret.Name,
@@ -68,7 +68,7 @@ func GetAccByName(name string) int64 {
 
 	var ret int64
 
-	stmt := `select id from acc where name=? order by id`
+	stmt := `select id from acc where name=?`
 	err := DB.QueryRow(stmt, name).Scan(&ret)
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -177,6 +177,7 @@ func AltAcc(name string, desc *string) int64 {
 		}
 
 		CreateTagInDesc(*desc, []int64{ID}, nil)
+		CleanUpTags()
 	}
 
 	return ID
@@ -199,6 +200,16 @@ func AltRenameAcc(old, neo string) int64 {
 		panic(err)
 	}
 
+	// 자식 계정들의 접두사(Prefix)도 함께 변경 (Cascade Rename)
+	prefixOld := old + ":"
+	prefixNeo := neo + ":"
+	stmtChild := `update acc set name = ? || substr(name, ?) where name like ?`
+	_, err = DB.Exec(stmtChild, prefixNeo, len([]rune(prefixOld))+1, prefixOld+"%")
+	if err != nil {
+		panic(err)
+	}
+
+	CleanUpTags()
 	return ID
 }
 func DelAcc(name string) int64 {
@@ -209,8 +220,18 @@ func DelAcc(name string) int64 {
 		return -1
 	}
 
+	// 안전 장치: 거래 기록(Record)이 하나라도 존재하는 계정은 삭제 차단
+	var count int
+	err := DB.QueryRow(`select count(*) from record where aid=?`, ID).Scan(&count)
+	if err != nil {
+		panic(err)
+	}
+	if count > 0 {
+		panic(fmt.Errorf("cannot delete account '%s' because it has %d associated transaction record(s)", name, count))
+	}
+
 	stmt := `delete from acc where id=?`
-	_, err := DB.Exec(stmt, ID)
+	_, err = DB.Exec(stmt, ID)
 	if err != nil {
 		panic(err)
 	}

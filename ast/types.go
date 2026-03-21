@@ -2,6 +2,7 @@ package ast
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -18,8 +19,30 @@ type Num float64
 // 숫자 노드
 
 func (n Num) String() string {
-	//문자열로 출력
-	return fmt.Sprint(float64(n))
+	val := float64(n)
+	s := strconv.FormatFloat(val, 'f', -1, 64)
+	parts := strings.Split(s, ".")
+	intPart := parts[0]
+	decPart := ""
+	if len(parts) > 1 {
+		decPart = "." + parts[1]
+	}
+	isNeg := false
+	if strings.HasPrefix(intPart, "-") {
+		isNeg = true
+		intPart = intPart[1:]
+	}
+	res := ""
+	for i, c := range intPart {
+		if i > 0 && (len(intPart)-i)%3 == 0 {
+			res += ","
+		}
+		res += string(c)
+	}
+	if isNeg {
+		res = "-" + res
+	}
+	return res + decPart
 }
 func (n Num) Get() Value {
 	return n

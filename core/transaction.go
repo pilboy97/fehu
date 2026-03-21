@@ -50,7 +50,7 @@ func GetTxnByID(tid int64) Txn {
 
 	var ret Txn
 
-	stmt := `select id, desc, time from txn where id=? order by time`
+	stmt := `select id, desc, time from txn where id=?`
 	err := DB.QueryRow(stmt, tid).Scan(
 		&ret.ID,
 		&ret.Desc,
@@ -152,14 +152,14 @@ func AltTxn(tid int64, desc *string, timestamp *time.Time) int64 {
 			panic(err)
 		}
 
-		stmt := `update Txn set desc=? where id=?`
+		stmt := `update txn set desc=? where id=?`
 		_, err = DB.Exec(stmt, desc, tid)
 		if err != nil {
 			panic(err)
 		}
 	}
 	if timestamp != nil {
-		stmt := `update Txn set time=? where id=?`
+		stmt := `update txn set time=? where id=?`
 		_, err := DB.Exec(stmt, timestamp, tid)
 		if err != nil {
 			panic(err)
@@ -168,6 +168,7 @@ func AltTxn(tid int64, desc *string, timestamp *time.Time) int64 {
 
 	if desc != nil {
 		CreateTagInDesc(*desc, nil, []int64{tid})
+		CleanUpTags()
 	}
 	return tid
 }
@@ -202,12 +203,13 @@ func DelTxn(tid int64) int64 {
 		return -1
 	}
 
-	stmt := `delete from Txn where id=?`
+	stmt := `delete from txn where id=?`
 	_, err := DB.Exec(stmt, tid)
 	if err != nil {
 		panic(err)
 	}
 
+	CleanUpTags()
 	return tid
 }
 
@@ -226,6 +228,9 @@ func PrintTxn(id int64) string {
 	var ret = make([]string, 0)
 
 	var txn = GetTxnByID(id)
+	if txn.ID == -1 {
+		panic(ErrCannotFind)
+	}
 	var records = GetRecordByTID(id)
 
 	ret = append(ret, fmt.Sprintf("%8d|%24s|                        |        |%16s", txn.ID, txn.Time.Format(TimeFmt), txn.Desc))

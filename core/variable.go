@@ -1,4 +1,4 @@
 package core
 
-var Code = "KRW"
+var Code = "USD"
 var DBPath = ""

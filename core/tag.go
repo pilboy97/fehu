@@ -73,7 +73,7 @@ func GetTagByID(aid int64) Tag {
 	ChkDB()
 
 	var ret Tag
-	stmt := `select id, name, desc from tag where id=? order by id`
+	stmt := `select id, name, desc from tag where id=?`
 	err := DB.QueryRow(stmt, aid).Scan(
 		&ret.ID,
 		&ret.Name,
@@ -89,7 +89,7 @@ func GetTagByName(name string) int64 {
 
 	var ret int64
 
-	stmt := `select id from tag where name=? order by id`
+	stmt := `select id from tag where name=?`
 	err := DB.QueryRow(stmt, name).Scan(&ret)
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -182,7 +182,54 @@ func AltRenameTag(old, neo string) int64 {
 		panic(err)
 	}
 
+	// 기존 계정과 거래의 설명(desc) 원문에 적힌 해시태그 문자열도 일괄 치환
+	// (예: #testtag2를 #testtag3으로 변경. #testtag2_extra 같은 부분 일치 방지)
+	re := regexp.MustCompile(`(?i)#` + regexp.QuoteMeta(old) + `([^\p{L}\d_]|$)`)
+
+	accRows, err := DB.Query(`select aid from tagacc where tagid=?`, ID)
+	if err == nil {
+		var aids []int64
+		for accRows.Next() {
+			var aid int64
+			accRows.Scan(&aid)
+			aids = append(aids, aid)
+		}
+		accRows.Close()
+
+		for _, aid := range aids {
+			acc := GetAccByID(aid)
+			newDesc := re.ReplaceAllString(acc.Desc, "#"+neo+"${1}")
+			DB.Exec(`update acc set desc=? where id=?`, newDesc, aid)
+		}
+	}
+
+	txnRows, err := DB.Query(`select tid from tagtxn where tagid=?`, ID)
+	if err == nil {
+		var tids []int64
+		for txnRows.Next() {
+			var tid int64
+			txnRows.Scan(&tid)
+			tids = append(tids, tid)
+		}
+		txnRows.Close()
+
+		for _, tid := range tids {
+			txn := GetTxnByID(tid)
+			newDesc := re.ReplaceAllString(txn.Desc, "#"+neo+"${1}")
+			DB.Exec(`update txn set desc=? where id=?`, newDesc, tid)
+		}
+	}
+
 	return ID
+}
+func CleanUpTags() {
+	ChkDB()
+
+	stmt := `delete from tag where id not in (select tagid from tagacc) and id not in (select tagid from tagtxn)`
+	_, err := DB.Exec(stmt)
+	if err != nil {
+		panic(err)
+	}
 }
 func DelTag(name string) int64 {
 	ChkDB()

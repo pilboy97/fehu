@@ -2,6 +2,7 @@ package core
 
 import (
 	"database/sql"
+	"os"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
@@ -11,6 +12,18 @@ var ErrDBIsNotOpened = errors.New("DB is not opened")
 var DB *sql.DB
 
 func ChkDB() {
+	if DB == nil {
+		if db := os.Getenv("FEHU_DB"); db != "" {
+			Open(db + ".db")
+		}
+	} else if err := DB.Ping(); err != nil {
+		if db := os.Getenv("FEHU_DB"); db != "" {
+			Open(db + ".db")
+		} else if DBPath != "" {
+			Open(DBPath)
+		}
+	}
+
 	if len(DBPath) == 0 {
 		panic(ErrDBIsNotOpened)
 	}
@@ -78,10 +91,10 @@ func Open(path string) {
 	}
 
 	createTagAccStmt := `create table if not exists tagacc(
-		tagid int64,
-		aid int64,
-		primary key(tagid, aid)
-		foreign key(tagid) references tag(id) on delete cascade
+		tagid integer,
+		aid integer,
+		primary key(tagid, aid),
+		foreign key(tagid) references tag(id) on delete cascade,
 		foreign key(aid) references acc(id) on delete cascade
 	)`
 
@@ -91,10 +104,10 @@ func Open(path string) {
 	}
 
 	createTagTxnStmt := `create table if not exists tagtxn(
-		tagid int64,
-		tid int64,
-		primary key(tagid, tid)
-		foreign key(tagid) references tag(id) on delete cascade
+		tagid integer,
+		tid integer,
+		primary key(tagid, tid),
+		foreign key(tagid) references tag(id) on delete cascade,
 		foreign key(tid) references txn(id) on delete cascade
 	)`
 

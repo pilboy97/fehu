@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Rhymond/go-money"
 )
 
 var env *Env
@@ -28,8 +30,13 @@ func main() {
 	flag.StringVar(&initDB, "d", "", "start with opening db")
 	flag.BoolVar(&BenchMode, "b", false, "print elapsed time")
 	flag.StringVar(&cmd, "c", "", "execute command")
-	flag.StringVar(&core.Code, "CODE", "KRW", "set currency code")
+	flag.StringVar(&core.Code, "CODE", "USD", "set currency code")
 	flag.Parse()
+
+	// 입력된 통화 코드가 기본 목록에 없다면, 암호화폐나 커스텀 화폐로 간주하고 소수점 8자리로 자동 등록합니다.
+	if money.GetCurrency(core.Code) == nil {
+		money.AddCurrency(core.Code, core.Code+" ", "1 $", ".", ",", 8)
+	}
 
 	// DB 자동 오픈 플래그가 있으면 MCP 서버 시작 전에도 DB를 엽니다.
 	if len(initDB) != 0 {

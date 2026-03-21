@@ -98,6 +98,8 @@ var Ops = map[string]int{
 	">=": GEQ,
 	"<=": LEQ,
 	",":  COMMA,
+	"&&": AND,
+	"||": OR,
 }
 var RWords = map[string]int{
 	"def":   DEF,

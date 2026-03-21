@@ -136,6 +136,13 @@ var delAccState = &cli.State{
 	Pat:    "^acc$",
 	Param:  1,
 }
+var altCodeState = &cli.State{
+	Action: true,
+	Name:   "alt code",
+	Manual: "alter currency code",
+	Pat:    "^code$",
+	Param:  1,
+}
 
 var newTxnState = &cli.State{
 	Action: true,
@@ -341,6 +348,7 @@ func init() {
 
 	altState.SetNext(altAccState)
 	altAccState.SetNext(altAccRenameState)
+	altState.SetNext(altCodeState)
 
 	delState.SetNext(delAccState)
 

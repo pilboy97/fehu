@@ -12,12 +12,18 @@ import (
 
 	"core"
 
+	"github.com/Rhymond/go-money"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
 
 // StartMCPServer initializes and starts the standard I/O MCP server.
 func StartMCPServer() error {
+	// 환경변수가 설정되어 있다면 시작 시 자동으로 DB를 엽니다.
+	if db := os.Getenv("FEHU_DB"); db != "" {
+		core.Open(db + ".db")
+	}
+
 	// 1. 서버 생성
 	s := server.NewMCPServer(
 		"fehu-mcp",
@@ -64,6 +70,13 @@ func StartMCPServer() error {
 	)
 	s.AddTool(updateAccTool, handleUpdateAccount)
 
+	// 도구(Tool): 여러 계정 일괄 수정
+	batchUpdateAccTool := mcp.NewTool("batch_update_accounts",
+		mcp.WithDescription("Update multiple accounts at once using a JSON array"),
+		mcp.WithString("updates_json", mcp.Required(), mcp.Description(`JSON array of account updates. Format: [{"name":"old_name", "new_name":"new_name (optional)", "desc":"new desc (optional)"}]`)),
+	)
+	s.AddTool(batchUpdateAccTool, handleBatchUpdateAccounts)
+
 	// 도구(Tool): 계정 삭제
 	deleteAccTool := mcp.NewTool("delete_account",
 		mcp.WithDescription("Delete an existing account"),
@@ -108,10 +121,18 @@ func StartMCPServer() error {
 	// 도구(Tool): 트랜잭션 레코드(금액/계정) 수정
 	updateTxnRecordTool := mcp.NewTool("update_transaction_record",
 		mcp.WithDescription("Replace all records (account flows and amounts) of an existing transaction"),
+		mcp.WithDescription("Replace all records (account flows and amounts) of an existing transaction. USE THIS INSTEAD OF deleting and recreating a transaction when changing amounts or accounts."),
 		mcp.WithNumber("id", mcp.Required(), mcp.Description("Transaction ID to update")),
 		mcp.WithString("record", mcp.Required(), mcp.Description("New record format (e.g. income:salary<50000;asset:bank>50000)")),
 	)
 	s.AddTool(updateTxnRecordTool, handleUpdateTransactionRecord)
+
+	// 도구(Tool): 여러 트랜잭션 레코드 일괄 수정
+	batchUpdateTxnRecordTool := mcp.NewTool("batch_update_transaction_records",
+		mcp.WithDescription("Replace records of multiple transactions at once using a JSON array"),
+		mcp.WithString("updates_json", mcp.Required(), mcp.Description(`JSON array of record updates. Format: [{"id": 1, "record": "income<100;bank>100"}]`)),
+	)
+	s.AddTool(batchUpdateTxnRecordTool, handleBatchUpdateTransactionRecords)
 
 	// 도구(Tool): 여러 트랜잭션 일괄 수정
 	batchUpdateTxnTool := mcp.NewTool("batch_update_transactions",
@@ -127,6 +148,13 @@ func StartMCPServer() error {
 	)
 	s.AddTool(deleteTxnTool, handleDeleteTransaction)
 
+	// 도구(Tool): 여러 트랜잭션 일괄 삭제
+	batchDeleteTxnTool := mcp.NewTool("batch_delete_transactions",
+		mcp.WithDescription("Delete multiple transactions at once using a JSON array of IDs"),
+		mcp.WithString("ids_json", mcp.Required(), mcp.Description(`JSON array of transaction IDs. Format: [1, 2, 3]`)),
+	)
+	s.AddTool(batchDeleteTxnTool, handleBatchDeleteTransactions)
+
 	// 도구(Tool): 태그 목록 조회
 	getTagTool := mcp.NewTool("get_tags",
 		mcp.WithDescription("Get a list of all tags in the Fehu database"),
@@ -141,6 +169,20 @@ func StartMCPServer() error {
 		mcp.WithString("desc", mcp.Description("New description for the tag")),
 	)
 	s.AddTool(updateTagTool, handleUpdateTag)
+
+	// 도구(Tool): 여러 태그 일괄 수정
+	batchUpdateTagTool := mcp.NewTool("batch_update_tags",
+		mcp.WithDescription("Update multiple tags at once using a JSON array"),
+		mcp.WithString("updates_json", mcp.Required(), mcp.Description(`JSON array of tag updates. Format: [{"name":"old_name", "new_name":"new_name (optional)", "desc":"new desc (optional)"}]`)),
+	)
+	s.AddTool(batchUpdateTagTool, handleBatchUpdateTags)
+
+	// 도구(Tool): 통화 변경
+	setCurrencyTool := mcp.NewTool("set_currency",
+		mcp.WithDescription("Change the active currency code (e.g. USD, KRW, BTC)"),
+		mcp.WithString("code", mcp.Required(), mcp.Description("Currency code to switch to")),
+	)
+	s.AddTool(setCurrencyTool, handleSetCurrency)
 
 	// 도구(Tool): 태그 삭제
 	deleteTagTool := mcp.NewTool("delete_tag",
@@ -268,6 +310,10 @@ func handleUpdateAccount(ctx context.Context, request mcp.CallToolRequest) (res 
 	args := request.GetArguments()
 	name := args["name"].(string)
 
+	if core.GetAccByName(name) == -1 {
+		return mcp.NewToolResultText(fmt.Sprintf("Account update failed: Account '%s' not found. Please check get_accounts for the correct name.", name)), nil
+	}
+
 	if descArg, ok := args["desc"]; ok {
 		if desc, ok := descArg.(string); ok {
 			core.SureID(core.AltAcc(name, &desc))
@@ -276,11 +322,49 @@ func handleUpdateAccount(ctx context.Context, request mcp.CallToolRequest) (res 
 
 	if newNameArg, ok := args["new_name"]; ok {
 		if newName, ok := newNameArg.(string); ok && newName != "" {
+			newName = core.SureName(newName) // 정규식 검증 및 중복 체크
 			core.SureID(core.AltRenameAcc(name, newName))
 			name = newName
 		}
 	}
 	return mcp.NewToolResultText(fmt.Sprintf("Account '%s' updated successfully", name)), nil
+}
+
+func handleBatchUpdateAccounts(ctx context.Context, request mcp.CallToolRequest) (res *mcp.CallToolResult, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			res = mcp.NewToolResultText(fmt.Sprintf("Batch account update failed.\nInternal Error: %v", r))
+		}
+	}()
+	args := request.GetArguments()
+	jsonStr := args["updates_json"].(string)
+
+	var updates []struct {
+		Name    string  `json:"name"`
+		NewName *string `json:"new_name"`
+		Desc    *string `json:"desc"`
+	}
+	if err := json.Unmarshal([]byte(jsonStr), &updates); err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Failed to parse account updates JSON.\nError: %v\n\nPlease ensure your input matches this format:\n[{\"name\":\"old_name\", \"new_name\":\"optional\", \"desc\":\"optional\"}]\n\nProvided input:\n%s", err, jsonStr)), nil
+	}
+
+	var updatedNames []string
+	for _, u := range updates {
+		name := u.Name
+		if core.GetAccByName(name) == -1 {
+			return mcp.NewToolResultText(fmt.Sprintf("Batch account update failed: Account '%s' not found.", name)), nil
+		}
+		if u.Desc != nil {
+			core.SureID(core.AltAcc(name, u.Desc))
+		}
+		if u.NewName != nil && *u.NewName != "" {
+			newName := core.SureName(*u.NewName) // 정규식 검증 및 중복 체크
+			core.SureID(core.AltRenameAcc(name, newName))
+			name = newName
+		}
+		updatedNames = append(updatedNames, name)
+	}
+	return mcp.NewToolResultText(fmt.Sprintf("Successfully updated %d accounts. Names: %s", len(updatedNames), strings.Join(updatedNames, ", "))), nil
 }
 
 func handleDeleteAccount(ctx context.Context, request mcp.CallToolRequest) (res *mcp.CallToolResult, err error) {
@@ -317,6 +401,11 @@ func handleGetTransactions(ctx context.Context, request mcp.CallToolRequest) (re
 		case string:
 			fmt.Sscanf(v, "%d", &id)
 		}
+
+		if core.GetTxnByID(id).ID == -1 {
+			return mcp.NewToolResultText(fmt.Sprintf("Transaction #%d not found.", id)), nil
+		}
+
 		ret = []int64{id}
 	} else if desc != "" {
 		ret = core.GetTxnByDesc(desc)
@@ -358,7 +447,11 @@ func handleCreateTransaction(ctx context.Context, request mcp.CallToolRequest) (
 
 	tid := core.NewTxn(desc, t)
 	for _, p := range pats {
-		aid := core.SureID(core.GetAccByName(p.Name))
+		aid := core.GetAccByName(p.Name)
+		if aid == -1 {
+			core.DelTxn(tid)
+			return mcp.NewToolResultText(fmt.Sprintf("Transaction creation failed: Account '%s' not found. Please create it first.", p.Name)), nil
+		}
 		core.NewRecord(tid, aid, p.Amount)
 	}
 	return mcp.NewToolResultText(fmt.Sprintf("txn #%d created", tid)), nil
@@ -393,7 +486,11 @@ func handleBatchCreateTransactions(ctx context.Context, request mcp.CallToolRequ
 
 		tid := core.NewTxn(t.Desc, ts)
 		for _, p := range pats {
-			aid := core.SureID(core.GetAccByName(p.Name))
+			aid := core.GetAccByName(p.Name)
+			if aid == -1 {
+				core.DelTxn(tid)
+				return mcp.NewToolResultText(fmt.Sprintf("Batch transaction creation failed: Account '%s' not found.", p.Name)), nil
+			}
 			core.NewRecord(tid, aid, p.Amount)
 		}
 		createdIDs = append(createdIDs, fmt.Sprintf("%d", tid))
@@ -435,7 +532,10 @@ func handleUpdateTransaction(ctx context.Context, request mcp.CallToolRequest) (
 		}
 	}
 
-	core.SureID(core.AltTxn(id, descPtr, timePtr))
+	if core.AltTxn(id, descPtr, timePtr) == -1 {
+		return mcp.NewToolResultText(fmt.Sprintf("Transaction update failed: Transaction #%d not found.", id)), nil
+	}
+
 	return mcp.NewToolResultText(fmt.Sprintf("txn #%d updated successfully", id)), nil
 }
 
@@ -462,12 +562,54 @@ func handleUpdateTransactionRecord(ctx context.Context, request mcp.CallToolRequ
 
 	var records []core.Record
 	for _, p := range pats {
-		aid := core.SureID(core.GetAccByName(p.Name))
+		aid := core.GetAccByName(p.Name)
+		if aid == -1 {
+			return mcp.NewToolResultText(fmt.Sprintf("Transaction record update failed: Account '%s' not found. Please check the spelling or create it first.", p.Name)), nil
+		}
 		records = append(records, core.Record{TID: id, AID: aid, Amount: p.Amount})
 	}
 
-	core.SureID(core.AltTxnRecord(id, records))
+	if core.AltTxnRecord(id, records) == -1 {
+		return mcp.NewToolResultText(fmt.Sprintf("Transaction record update failed: Transaction #%d not found or invalid.", id)), nil
+	}
+
 	return mcp.NewToolResultText(fmt.Sprintf("txn #%d records updated successfully", id)), nil
+}
+
+func handleBatchUpdateTransactionRecords(ctx context.Context, request mcp.CallToolRequest) (res *mcp.CallToolResult, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			res = mcp.NewToolResultText(fmt.Sprintf("Batch transaction record update failed.\nInternal Error: %v", r))
+		}
+	}()
+	args := request.GetArguments()
+	jsonStr := args["updates_json"].(string)
+
+	var updates []struct {
+		ID     int64  `json:"id"`
+		Record string `json:"record"`
+	}
+	if err := json.Unmarshal([]byte(jsonStr), &updates); err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Failed to parse transaction record updates JSON.\nError: %v\n\nPlease ensure your input matches this format:\n[{\"id\": 1, \"record\": \"income<100;bank>100\"}]\n\nProvided input:\n%s", err, jsonStr)), nil
+	}
+
+	var updatedIDs []string
+	for _, u := range updates {
+		pats := ParseTxnPattern(u.Record)
+		var records []core.Record
+		for _, p := range pats {
+			aid := core.GetAccByName(p.Name)
+			if aid == -1 {
+				return mcp.NewToolResultText(fmt.Sprintf("Batch transaction record update failed: Account '%s' not found. Please check spelling or create it first.", p.Name)), nil
+			}
+			records = append(records, core.Record{TID: u.ID, AID: aid, Amount: p.Amount})
+		}
+		if core.AltTxnRecord(u.ID, records) == -1 {
+			return mcp.NewToolResultText(fmt.Sprintf("Batch transaction record update failed: Transaction #%d not found or invalid.", u.ID)), nil
+		}
+		updatedIDs = append(updatedIDs, fmt.Sprintf("%d", u.ID))
+	}
+	return mcp.NewToolResultText(fmt.Sprintf("Successfully updated %d transaction records. IDs: %s", len(updatedIDs), strings.Join(updatedIDs, ", "))), nil
 }
 
 func handleBatchUpdateTransactions(ctx context.Context, request mcp.CallToolRequest) (res *mcp.CallToolResult, err error) {
@@ -495,7 +637,10 @@ func handleBatchUpdateTransactions(ctx context.Context, request mcp.CallToolRequ
 			t := core.ParseTime(*u.Time)
 			timePtr = &t
 		}
-		core.SureID(core.AltTxn(u.ID, u.Desc, timePtr))
+		if core.AltTxn(u.ID, u.Desc, timePtr) == -1 {
+			return mcp.NewToolResultText(fmt.Sprintf("Batch transaction update failed: Transaction #%d not found.", u.ID)), nil
+		}
+
 		updatedIDs = append(updatedIDs, fmt.Sprintf("%d", u.ID))
 	}
 	return mcp.NewToolResultText(fmt.Sprintf("Successfully updated %d transactions. IDs: %s", len(updatedIDs), strings.Join(updatedIDs, ", "))), nil
@@ -519,8 +664,36 @@ func handleDeleteTransaction(ctx context.Context, request mcp.CallToolRequest) (
 		fmt.Sscanf(v, "%d", &id)
 	}
 
-	core.DelTxn(id)
+	if core.DelTxn(id) == -1 {
+		return mcp.NewToolResultText(fmt.Sprintf("Transaction deletion failed: Transaction #%d not found.", id)), nil
+	}
+
 	return mcp.NewToolResultText(fmt.Sprintf("txn #%d deleted successfully", id)), nil
+}
+
+func handleBatchDeleteTransactions(ctx context.Context, request mcp.CallToolRequest) (res *mcp.CallToolResult, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			res = mcp.NewToolResultText(fmt.Sprintf("Batch transaction deletion failed.\nInternal Error: %v", r))
+		}
+	}()
+	args := request.GetArguments()
+	jsonStr := args["ids_json"].(string)
+
+	var ids []int64
+	if err := json.Unmarshal([]byte(jsonStr), &ids); err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Failed to parse transaction IDs JSON.\nError: %v\n\nPlease ensure your input matches this format:\n[1, 2, 3]\n\nProvided input:\n%s", err, jsonStr)), nil
+	}
+
+	var deletedIDs []string
+	for _, id := range ids {
+		if core.DelTxn(id) == -1 {
+			return mcp.NewToolResultText(fmt.Sprintf("Batch transaction deletion failed: Transaction #%d not found.", id)), nil
+		}
+		deletedIDs = append(deletedIDs, fmt.Sprintf("%d", id))
+	}
+
+	return mcp.NewToolResultText(fmt.Sprintf("Successfully deleted %d transactions. IDs: %s", len(deletedIDs), strings.Join(deletedIDs, ", "))), nil
 }
 
 func handleGetTags(ctx context.Context, request mcp.CallToolRequest) (res *mcp.CallToolResult, err error) {
@@ -542,6 +715,10 @@ func handleUpdateTag(ctx context.Context, request mcp.CallToolRequest) (res *mcp
 	args := request.GetArguments()
 	name := args["name"].(string)
 
+	if core.GetTagByName(name) == -1 {
+		return mcp.NewToolResultText(fmt.Sprintf("Tag update failed: Tag '%s' not found.", name)), nil
+	}
+
 	if descArg, ok := args["desc"]; ok {
 		if desc, ok := descArg.(string); ok {
 			core.SureID(core.AltTag(name, &desc))
@@ -551,11 +728,68 @@ func handleUpdateTag(ctx context.Context, request mcp.CallToolRequest) (res *mcp
 	if newNameArg, ok := args["new_name"]; ok {
 		if newName, ok := newNameArg.(string); ok && newName != "" {
 			core.SureName(newName)
-			core.AltRenameTag(name, newName)
+			if core.AltRenameTag(name, newName) == -2 {
+				return mcp.NewToolResultText(fmt.Sprintf("Tag rename failed: Tag '%s' already exists.", newName)), nil
+			}
 			name = newName
 		}
 	}
 	return mcp.NewToolResultText(fmt.Sprintf("Tag '%s' updated successfully", name)), nil
+}
+
+func handleBatchUpdateTags(ctx context.Context, request mcp.CallToolRequest) (res *mcp.CallToolResult, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			res = mcp.NewToolResultText(fmt.Sprintf("Batch tag update failed.\nInternal Error: %v", r))
+		}
+	}()
+	args := request.GetArguments()
+	jsonStr := args["updates_json"].(string)
+
+	var updates []struct {
+		Name    string  `json:"name"`
+		NewName *string `json:"new_name"`
+		Desc    *string `json:"desc"`
+	}
+	if err := json.Unmarshal([]byte(jsonStr), &updates); err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Failed to parse tag updates JSON.\nError: %v\n\nPlease ensure your input matches this format:\n[{\"name\":\"old_name\", \"new_name\":\"optional\", \"desc\":\"optional\"}]\n\nProvided input:\n%s", err, jsonStr)), nil
+	}
+
+	var updatedNames []string
+	for _, u := range updates {
+		name := u.Name
+		if core.GetTagByName(name) == -1 {
+			return mcp.NewToolResultText(fmt.Sprintf("Batch tag update failed: Tag '%s' not found.", name)), nil
+		}
+		if u.Desc != nil {
+			core.SureID(core.AltTag(name, u.Desc))
+		}
+		if u.NewName != nil && *u.NewName != "" {
+			newName := core.SureName(*u.NewName)
+			if core.AltRenameTag(name, newName) == -2 {
+				return mcp.NewToolResultText(fmt.Sprintf("Batch tag update failed: Tag '%s' already exists.", newName)), nil
+			}
+			name = newName
+		}
+		updatedNames = append(updatedNames, name)
+	}
+	return mcp.NewToolResultText(fmt.Sprintf("Successfully updated %d tags. Names: %s", len(updatedNames), strings.Join(updatedNames, ", "))), nil
+}
+
+func handleSetCurrency(ctx context.Context, request mcp.CallToolRequest) (res *mcp.CallToolResult, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			res = mcp.NewToolResultText(fmt.Sprintf("Error: %v", r))
+		}
+	}()
+	args := request.GetArguments()
+	code := args["code"].(string)
+
+	core.Code = code
+	if money.GetCurrency(core.Code) == nil {
+		money.AddCurrency(core.Code, core.Code+" ", "1 $", ".", ",", 8)
+	}
+	return mcp.NewToolResultText(fmt.Sprintf("Currency changed to %s", core.Code)), nil
 }
 
 func handleDeleteTag(ctx context.Context, request mcp.CallToolRequest) (res *mcp.CallToolResult, err error) {
