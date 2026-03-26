@@ -237,7 +237,7 @@ func handleOpenDB(ctx context.Context, request mcp.CallToolRequest) (res *mcp.Ca
 	name := args["name"].(string)
 
 	core.Open(name + ".db")
-	return mcp.NewToolResultText(fmt.Sprintf("Database %s.db opened successfully", name)), nil
+	return mcp.NewToolResultText(fmt.Sprintf("Database %s.db opened successfully\nCurrency: %s", name, core.Code)), nil
 }
 
 func handleGetAccounts(ctx context.Context, request mcp.CallToolRequest) (res *mcp.CallToolResult, err error) {
