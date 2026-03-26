@@ -111,5 +111,10 @@ func AltCode(cmd cli.Cmd) {
 	if money.GetCurrency(core.Code) == nil {
 		money.AddCurrency(core.Code, core.Code+" ", "1 $", ".", ",", 8)
 	}
+
 	fmt.Printf("Currency code changed to %s\n", core.Code)
+
+	core.SetConfig(core.Config{
+		Currency: core.Code,
+	})
 }

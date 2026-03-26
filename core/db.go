@@ -116,6 +116,17 @@ func Open(path string) {
 		panic(err)
 	}
 
+	createConfigStmt := `create table if not exists config(
+		key text not null primary key,
+		currency text not null
+	)`
+
+	_, err = DB.Exec(createConfigStmt)
+	if err != nil {
+		panic(err)
+	}
+
+	InitConfig()
 }
 func Close() {
 	DB.Close()
