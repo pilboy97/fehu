@@ -11,16 +11,22 @@ import (
 var ErrDBIsNotOpened = errors.New("DB is not opened")
 var DB *sql.DB
 
-func ChkDB() {
+func MustDB() {
 	if DB == nil {
 		if db := os.Getenv("FEHU_DB"); db != "" {
-			Open(db + ".db")
+			if err := Open(db + ".db"); err != nil {
+				panic(err)
+			}
 		}
 	} else if err := DB.Ping(); err != nil {
 		if db := os.Getenv("FEHU_DB"); db != "" {
-			Open(db + ".db")
+			if err := Open(db + ".db"); err != nil {
+				panic(err)
+			}
 		} else if DBPath != "" {
-			Open(DBPath)
+			if err := Open(DBPath); err != nil {
+				panic(err)
+			}
 		}
 	}
 
@@ -29,18 +35,18 @@ func ChkDB() {
 	}
 }
 
-func Open(path string) {
+func Open(path string) error {
 	DBPath = path
 
 	var err error
 	DB, err = sql.Open("sqlite3", path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	_, err = DB.Exec(`pragma foreign_keys = on`)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	createAccStmt := `create table if not exists acc(
@@ -51,7 +57,7 @@ func Open(path string) {
 
 	_, err = DB.Exec(createAccStmt)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	createTxnStmt := `create table if not exists txn(
@@ -62,7 +68,7 @@ func Open(path string) {
 
 	_, err = DB.Exec(createTxnStmt)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	createRecordStmt := `create table if not exists record (
@@ -76,7 +82,7 @@ func Open(path string) {
 
 	_, err = DB.Exec(createRecordStmt)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	createTagStmt := `create table if not exists Tag(
@@ -87,7 +93,7 @@ func Open(path string) {
 
 	_, err = DB.Exec(createTagStmt)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	createTagAccStmt := `create table if not exists tagacc(
@@ -100,7 +106,7 @@ func Open(path string) {
 
 	_, err = DB.Exec(createTagAccStmt)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	createTagTxnStmt := `create table if not exists tagtxn(
@@ -113,7 +119,7 @@ func Open(path string) {
 
 	_, err = DB.Exec(createTagTxnStmt)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	createConfigStmt := `create table if not exists config(
@@ -123,11 +129,27 @@ func Open(path string) {
 
 	_, err = DB.Exec(createConfigStmt)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	InitConfig()
+	createDefStmt := `create table if not exists vars (
+		name text not null primary key,
+		stmt text not null
+	)`
+
+	_, err = DB.Exec(createDefStmt)
+	if err != nil {
+		return err
+	}
+
+	if err := LoadConfig(); err != nil {
+		return err
+	}
+	LoadAllDefsFromDB()
+
+	return nil
 }
+
 func Close() {
 	DB.Close()
 	DBPath = ""

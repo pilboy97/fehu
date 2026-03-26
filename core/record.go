@@ -2,6 +2,7 @@ package core
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/Rhymond/go-money"
 	"github.com/pkg/errors"
@@ -9,24 +10,30 @@ import (
 
 var ErrUnexpectedTID = errors.New("unexpected tid appears")
 
-func NewRecord(tid int64, aid int64, amount *money.Money) int64 {
-	ChkDB()
+func NewRecord(tid int64, aid int64, amount *money.Money) (int64, error) {
+	MustDB()
 
 	stmt := `insert into record(tid, aid, amount) values(?,?,?)`
 	res, err := DB.Exec(stmt, tid, aid, amount.Amount())
+
 	if err != nil {
-		panic(err)
+		return 0, err
+	}
+
+	stmt = `insert into record(tid, aid, amount) values(?,?,?)`
+	res, err = DB.Exec(stmt, tid, aid, amount.Amount())
+	if err != nil {
+		return 0, err
 	}
 
 	ret, err := res.LastInsertId()
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
-
-	return ret
+	return ret, nil
 }
-func GetRecordByID(id int64) Record {
-	ChkDB()
+func GetRecordByID(id int64) (Record, error) {
+	MustDB()
 
 	var ret Record
 	var raw int64
@@ -39,17 +46,16 @@ func GetRecordByID(id int64) Record {
 	)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			panic(err)
+			return Record{}, err
 		}
-		ret.ID = -1
-		return ret
+		return Record{ID: -1}, ErrCannotFind(fmt.Sprintf("record with ID %d", id))
 	}
 
 	ret.Amount = money.New(raw, Code)
-	return ret
+	return ret, nil
 }
 func GetRecordByTAID(tid, aid int64) Record {
-	ChkDB()
+	MustDB()
 
 	var ret Record
 	var raw int64
@@ -73,7 +79,7 @@ func GetRecordByTAID(tid, aid int64) Record {
 	return ret
 }
 func GetRecordByTID(tid int64) []int64 {
-	ChkDB()
+	MustDB()
 
 	var ret []int64
 
@@ -97,7 +103,7 @@ func GetRecordByTID(tid int64) []int64 {
 	return ret
 }
 func GetRecordByAID(aid int64) []int64 {
-	ChkDB()
+	MustDB()
 
 	var ret []int64
 
@@ -120,21 +126,21 @@ func GetRecordByAID(aid int64) []int64 {
 
 	return ret
 }
-func AltRecord(id int64, tid *int64, aid *int64, amount *money.Money) int64 {
-	ChkDB()
+func AltRecord(id int64, tid *int64, aid *int64, amount *money.Money) (int64, error) {
+	MustDB()
 
 	if tid != nil {
 		stmt := `update record set tid=? where id=?`
 		_, err := DB.Exec(stmt, tid, id)
 		if err != nil {
-			panic(err)
+			return 0, err
 		}
 	}
 	if aid != nil {
 		stmt := `update record set aid=? where id=?`
 		_, err := DB.Exec(stmt, aid, id)
 		if err != nil {
-			panic(err)
+			return 0, err
 		}
 	}
 	if amount != nil {
@@ -142,20 +148,20 @@ func AltRecord(id int64, tid *int64, aid *int64, amount *money.Money) int64 {
 		stmt := `update record set amount=? where id=?`
 		_, err := DB.Exec(stmt, raw, id)
 		if err != nil {
-			panic(err)
+			return 0, err
 		}
 	}
 
-	return id
+	return id, nil
 }
-func DelRecord(id int64) int64 {
-	ChkDB()
+func DelRecord(id int64) (int64, error) {
+	MustDB()
 
 	stmt := `delete from record where id=?`
 	_, err := DB.Exec(stmt, id)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 
-	return id
+	return id, nil
 }

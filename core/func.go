@@ -8,42 +8,39 @@ import (
 )
 
 var TimeFmt = `2006-01-02;15:04:05`
-var ErrWrongName = errors.New("wrong name")
-var ErrCannotFind = errors.New("failed to find")
-var ErrAlreadyExists = errors.New("already exists")
 
-func SureID(ret int64) int64 {
-	switch ret {
-	case -1:
-		panic(ErrCannotFind)
-	case -2:
-		panic(ErrAlreadyExists)
-	default:
-		break
-	}
-
-	return ret
+func ErrWrongName(name string) error {
+	return errors.Errorf("wrong name: %s", name)
+}
+func ErrCannotFind(name string) error {
+	return errors.Errorf("cannot find: %s", name)
+}
+func ErrAlreadyExists(name string) error {
+	return errors.Errorf("already exists: %s", name)
 }
 
-func SureName(name string) string {
+func SureName(name string) (string, error) {
 	ok, err := regexp.MatchString(`^~?((\p{L}|_)(\p{L}|\d|_)*:)*((\p{L}|_)(\p{L}|\d|_)*)$`, name)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
 	if !ok {
-		panic(ErrWrongName)
+		return "", ErrWrongName(name)
 	}
 
+	// Check if it's a reserved variable name
 	if _, ok := Vars[name]; ok {
-		panic(ErrAlreadyExists)
+		return "", ErrAlreadyExists(name)
 	}
 
-	if id := GetAccByName(name); id != -1 {
-		panic(ErrAlreadyExists)
+	// Check if an account with this name already exists
+	if _, err := GetAccByName(name); err == nil { // No error means it exists
+		return "", ErrAlreadyExists(name)
 	}
 
-	return name
+	// If all checks pass, the name is sure
+	return name, nil
 }
 func Search(str, ptn string) bool {
 	var D = make([][]bool, len(ptn))
@@ -82,28 +79,34 @@ func Search(str, ptn string) bool {
 
 	return false
 }
-func ParseTime(str string) int64 {
+func ParseTime(str string) (int64, error) {
 	ret, err := time.ParseInLocation(
 		TimeFmt,
 		str,
 		time.Local)
 
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 
-	return ret.UTC().Unix()
+	return ret.UTC().Unix(), nil
 }
 
 func ParsePeriod(st, ed string) Period {
 	var A, B *int64
 
 	if len(st) != 0 {
-		ts := ParseTime(st)
+		ts, err := ParseTime(st)
+		if err != nil {
+			// Handle error, perhaps return error from ParsePeriod
+		}
 		A = &ts
 	}
 	if len(ed) != 0 {
-		ts := ParseTime(ed)
+		ts, err := ParseTime(ed)
+		if err != nil {
+			// Handle error, perhaps return error from ParsePeriod
+		}
 		B = &ts
 	}
 

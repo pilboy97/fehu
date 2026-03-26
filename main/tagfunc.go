@@ -8,7 +8,13 @@ import (
 
 func NewTag(cmd cli.Cmd) {
 	var tag core.Tag
-	tag.Name = core.SureName(cmd.Pa[0])
+	var err error
+	tag.Name, err = core.SureName(cmd.Pa[0])
+	if err != nil {
+		fmt.Println("Invalid tag name")
+		return
+	}
+
 	for _, fl := range cmd.Fl {
 		switch fl.F.Name {
 		case "desc":
@@ -24,7 +30,11 @@ func GetTag(cmd cli.Cmd) {
 	fmt.Println(core.PrintTags(ret))
 }
 func GetTagByName(cmd cli.Cmd) {
-	var id = core.SureID(core.GetTagByName(cmd.Pa[0]))
+	var id, err = core.GetTagByName(cmd.Pa[0])
+	if err != nil {
+		fmt.Println("Tag not found")
+		return
+	}
 	fmt.Println(core.PrintTags([]int64{id}))
 }
 func GetTagByDesc(cmd cli.Cmd) {
@@ -40,17 +50,21 @@ func AltTag(cmd cli.Cmd) {
 		}
 	}
 
-	core.SureID(core.AltTag(cmd.Pa[0], desc))
+	core.AltTag(cmd.Pa[0], desc)
 }
 func AltTagRename(cmd cli.Cmd) {
 	var old, new string
 	old = cmd.Pa[0]
 	new = cmd.Pa[1]
 
-	core.SureName(new)
+	new, err := core.SureName(new)
+	if err != nil {
+		fmt.Println("Invalid tag name")
+		return
+	}
 
-	core.SureID(core.AltRenameTag(old, new))
+	core.AltRenameTag(old, new)
 }
 func DelTag(cmd cli.Cmd) {
-	core.SureID(core.DelTag(cmd.Pa[0]))
+	core.DelTag(cmd.Pa[0])
 }

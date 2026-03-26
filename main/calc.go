@@ -4,6 +4,7 @@ import (
 	"cli"
 	"core"
 	"fmt"
+	"strings"
 )
 
 func Calc(cmd cli.Cmd) {
@@ -13,8 +14,14 @@ func Calc(cmd cli.Cmd) {
 }
 func Def(cmd cli.Cmd) {
 	name := cmd.Pa[0]
-	stmt := cmd.Pa[1]
+	stmt := strings.Join(cmd.Pa[1:], "")
 
-	core.SureName(name)
-	core.DefStmt(name, stmt)
+	sureName, err := core.SureName(name)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	if err := core.DefStmt(sureName, stmt); err != nil {
+		fmt.Println("Error:", err)
+	}
 }

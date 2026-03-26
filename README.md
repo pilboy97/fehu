@@ -37,6 +37,12 @@ new txn income:salary<500000;expense:food>200000;asset:bank<-300000
 
 Transactions carry an optional description and timestamp, and can be queried by ID, description, or time range.
 
+### 💰 Absolute Amount Display
+Fehu internally uses negative values to distinguish between debit and credit for accurate accounting. However, all amounts displayed to the user (e.g., in account balances, transaction records, and summaries) are presented as **absolute positive values**. This ensures a clear and intuitive view of your financial data without needing to interpret negative signs for outflows.
+
+```
+
+
 ### 🏷️ Auto-tagging
 Write `#tagname` anywhere in an account or transaction description and Fehu automatically creates the tag and links it — no extra command needed.
 

@@ -12,38 +12,6 @@ var ErrWrongType = errors.New("wrong type")
 var ErrDividZero = errors.New("divid by zero")
 var ErrNotMatchFunc = errors.New("cannot match function parameter")
 
-var Vars = map[string]ast.Value{
-	"count":     ast.Variable{Name: "count"},
-	"sum":       ast.Variable{Name: "sum"},
-	"avg":       ast.Variable{Name: "avg"},
-	"max":       ast.Variable{Name: "max"},
-	"min":       ast.Variable{Name: "min"},
-	"acc":       ast.Variable{Name: "acc"},
-	"between":   ast.Variable{Name: "between"},
-	"union":     ast.Variable{Name: "union"},
-	"intersect": ast.Variable{Name: "intersect"},
-	"xor":       ast.Variable{Name: "xor"},
-	"atag":      ast.Variable{Name: "atag"},
-	"ttag":      ast.Variable{Name: "ttag"},
-	"help":      ast.Variable{Name: "help"},
-}
-
-func CalcStmt(stmt string) ast.Value {
-	tok := ast.Tokenize(stmt)
-	ast := ast.NewAst(tok)
-
-	return Calc(ast)
-}
-func DefStmt(name, stmt string) {
-	tok := ast.Tokenize(stmt)
-	ast := ast.NewAst(tok)
-
-	if _, ok := Vars[name]; ok {
-		panic(ErrAlreadyExists)
-	}
-
-	Vars[name] = Calc(ast)
-}
 func Calc(root *ast.Ast) ast.Value {
 	switch v := root.V.(type) {
 	case ast.Num:
@@ -59,7 +27,7 @@ func Calc(root *ast.Ast) ast.Value {
 			}
 			return v
 		} else {
-			panic(ErrUnknownVariable)
+			panic(ErrUnknownVariable) // TODO: Change to return error
 		}
 	case ast.Sym:
 		switch v.Op {
@@ -98,7 +66,7 @@ func Calc(root *ast.Ast) ast.Value {
 				if r, ok := R.(ast.Num); ok {
 					if float64(r) == 0 {
 						panic(ErrDividZero)
-					}
+					} // TODO: Change to return error
 					return ast.Num(float64(l) / float64(r))
 				}
 			}
@@ -183,7 +151,7 @@ func Calc(root *ast.Ast) ast.Value {
 		}
 	default:
 	}
-	panic(ErrWrongType)
+	panic(ErrWrongType) // TODO: Change to return error
 }
 func FCall(root *ast.Ast) ast.Value {
 	var L, R ast.Value
@@ -195,7 +163,7 @@ func FCall(root *ast.Ast) ast.Value {
 	}
 
 	if _, ok := L.(ast.Variable); !ok {
-		panic(ErrWrongType)
+		panic(ErrWrongType) // TODO: Change to return error
 	}
 	if _, ok := R.(ast.List); !ok {
 		R = ast.List{}.Append(R)
@@ -218,7 +186,7 @@ func FCall(root *ast.Ast) ast.Value {
 			if v, ok := elem.(ast.Num); ok {
 				res += float64(v)
 			} else {
-				panic(ErrWrongType)
+				panic(ErrWrongType) // TODO: Change to return error
 			}
 		}
 
@@ -232,7 +200,7 @@ func FCall(root *ast.Ast) ast.Value {
 			if v, ok := elem.(ast.Num); ok {
 				res += float64(v)
 			} else {
-				panic(ErrWrongType)
+				panic(ErrWrongType) // TODO: Change to return error
 			}
 		}
 
@@ -254,7 +222,7 @@ func FCall(root *ast.Ast) ast.Value {
 			if v, ok := elem.(ast.Num); ok {
 				res = math.Max(res, float64(v))
 			} else {
-				panic(ErrWrongType)
+				panic(ErrWrongType) // TODO: Change to return error
 			}
 		}
 
@@ -268,7 +236,7 @@ func FCall(root *ast.Ast) ast.Value {
 			if v, ok := elem.(ast.Num); ok {
 				res = math.Min(res, float64(v))
 			} else {
-				panic(ErrWrongType)
+				panic(ErrWrongType) // TODO: Change to return error
 			}
 		}
 
@@ -297,7 +265,7 @@ func FCall(root *ast.Ast) ast.Value {
 	case "atag":
 		if len(r.List()) != 2 {
 			panic(ErrNotMatchFunc)
-		}
+		} // TODO: Change to return error
 
 		var table *Table
 		var name string
@@ -305,8 +273,8 @@ func FCall(root *ast.Ast) ast.Value {
 		if v, ok := r.List()[0].(*Table); ok {
 			table = v
 		} else {
-			panic(ErrWrongType)
-		}
+			panic(ErrWrongType) // TODO: Change to return error
+		} // TODO: Change to return error
 		if v, ok := r.List()[1].(ast.Str); ok {
 			name = string(v)
 		} else {
@@ -317,7 +285,7 @@ func FCall(root *ast.Ast) ast.Value {
 	case "ttag":
 		if len(r.List()) != 2 {
 			panic(ErrNotMatchFunc)
-		}
+		} // TODO: Change to return error
 
 		var table *Table
 		var name string
@@ -325,8 +293,8 @@ func FCall(root *ast.Ast) ast.Value {
 		if v, ok := r.List()[0].(*Table); ok {
 			table = v
 		} else {
-			panic(ErrWrongType)
-		}
+			panic(ErrWrongType) // TODO: Change to return error
+		} // TODO: Change to return error
 		if v, ok := r.List()[1].(ast.Str); ok {
 			name = string(v)
 		} else {
@@ -337,7 +305,7 @@ func FCall(root *ast.Ast) ast.Value {
 	case "between":
 		if len(r.List()) != 3 {
 			panic(ErrNotMatchFunc)
-		}
+		} // TODO: Change to return error
 
 		var table *Table
 		var st, ed string
@@ -345,8 +313,8 @@ func FCall(root *ast.Ast) ast.Value {
 		if v, ok := r.List()[0].(*Table); ok {
 			table = v
 		} else {
-			panic(ErrWrongType)
-		}
+			panic(ErrWrongType) // TODO: Change to return error
+		} // TODO: Change to return error
 		if v, ok := r.List()[1].(ast.Str); ok {
 			st = string(v)
 		} else {
@@ -364,7 +332,7 @@ func FCall(root *ast.Ast) ast.Value {
 	case "union":
 		list := r.List()
 		if len(list) < 2 {
-			panic(ErrNotMatchFunc)
+			panic(ErrNotMatchFunc) // TODO: Change to return error
 		}
 
 		var ret *Table = nil
@@ -376,13 +344,13 @@ func FCall(root *ast.Ast) ast.Value {
 		}
 
 		if ret == nil {
-			panic(ErrWrongType)
+			panic(ErrWrongType) // TODO: Change to return error
 		}
 
 		for i := 2; i < len(list); i++ {
 			if v, ok := list[i].(*Table); ok {
 				ret = ret.Union(v)
-			} else {
+			} else { // TODO: Change to return error
 				panic(ErrWrongType)
 			}
 		}
@@ -391,7 +359,7 @@ func FCall(root *ast.Ast) ast.Value {
 	case "intersect":
 		list := r.List()
 		if len(list) < 2 {
-			panic(ErrNotMatchFunc)
+			panic(ErrNotMatchFunc) // TODO: Change to return error
 		}
 
 		var ret *Table = nil
@@ -403,13 +371,13 @@ func FCall(root *ast.Ast) ast.Value {
 		}
 
 		if ret == nil {
-			panic(ErrWrongType)
+			panic(ErrWrongType) // TODO: Change to return error
 		}
 
 		for i := 2; i < len(list); i++ {
 			if v, ok := list[i].(*Table); ok {
 				ret = ret.Intersect(v)
-			} else {
+			} else { // TODO: Change to return error
 				panic(ErrWrongType)
 			}
 		}
@@ -418,7 +386,7 @@ func FCall(root *ast.Ast) ast.Value {
 	case "xor":
 		list := r.List()
 		if len(list) < 2 {
-			panic(ErrNotMatchFunc)
+			panic(ErrNotMatchFunc) // TODO: Change to return error
 		}
 
 		var ret *Table = nil
@@ -430,13 +398,13 @@ func FCall(root *ast.Ast) ast.Value {
 		}
 
 		if ret == nil {
-			panic(ErrWrongType)
+			panic(ErrWrongType) // TODO: Change to return error
 		}
 
 		for i := 2; i < len(list); i++ {
 			if v, ok := list[i].(*Table); ok {
 				ret = ret.XOR(v)
-			} else {
+			} else { // TODO: Change to return error
 				panic(ErrWrongType)
 			}
 		}
@@ -444,5 +412,5 @@ func FCall(root *ast.Ast) ast.Value {
 		return ret
 	default:
 		panic(ErrWrongName)
-	}
+	} // TODO: Change to return error
 }

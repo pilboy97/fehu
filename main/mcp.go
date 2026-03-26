@@ -252,7 +252,12 @@ func handleGetAccounts(ctx context.Context, request mcp.CallToolRequest) (res *m
 
 	var ret []int64
 	if name != "" {
-		ret = []int64{core.GetAccByName(name)}
+		id, err := core.GetAccByName(name)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+		}
+
+		ret = []int64{id}
 	} else if desc != "" {
 		ret = core.GetAccByDesc(desc)
 	} else {
@@ -268,10 +273,18 @@ func handleCreateAccount(ctx context.Context, request mcp.CallToolRequest) (res 
 		}
 	}()
 	args := request.GetArguments()
-	name := core.SureName(args["name"].(string))
+	name, err := core.SureName(args["name"].(string))
+	if err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+	}
+
 	desc, _ := args["desc"].(string)
 
-	id := core.NewAcc(name, desc)
+	id, err := core.NewAcc(name, desc)
+	if err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+	}
+
 	return mcp.NewToolResultText(fmt.Sprintf("account #%d created", id)), nil
 }
 
@@ -294,7 +307,15 @@ func handleBatchCreateAccounts(ctx context.Context, request mcp.CallToolRequest)
 
 	var createdIDs []string
 	for _, a := range accs {
-		id := core.NewAcc(core.SureName(a.Name), a.Desc)
+		name, err := core.SureName(a.Name)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+		}
+		id, err := core.NewAcc(name, a.Desc)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+		}
+
 		createdIDs = append(createdIDs, fmt.Sprintf("%d", id))
 	}
 	return mcp.NewToolResultText(fmt.Sprintf("Successfully created %d accounts. IDs: %s", len(createdIDs), strings.Join(createdIDs, ", "))), nil
@@ -309,20 +330,24 @@ func handleUpdateAccount(ctx context.Context, request mcp.CallToolRequest) (res 
 	args := request.GetArguments()
 	name := args["name"].(string)
 
-	if core.GetAccByName(name) == -1 {
+	if _, err := core.GetAccByName(name); err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Account update failed: Account '%s' not found. Please check get_accounts for the correct name.", name)), nil
 	}
 
 	if descArg, ok := args["desc"]; ok {
 		if desc, ok := descArg.(string); ok {
-			core.SureID(core.AltAcc(name, &desc))
+			core.AltAcc(name, &desc)
 		}
 	}
 
 	if newNameArg, ok := args["new_name"]; ok {
 		if newName, ok := newNameArg.(string); ok && newName != "" {
-			newName = core.SureName(newName) // 정규식 검증 및 중복 체크
-			core.SureID(core.AltRenameAcc(name, newName))
+			newName, err = core.SureName(newName) // 정규식 검증 및 중복 체크
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+			}
+
+			core.AltRenameAcc(name, newName)
 			name = newName
 		}
 	}
@@ -350,15 +375,19 @@ func handleBatchUpdateAccounts(ctx context.Context, request mcp.CallToolRequest)
 	var updatedNames []string
 	for _, u := range updates {
 		name := u.Name
-		if core.GetAccByName(name) == -1 {
+		if _, err := core.GetAccByName(name); err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Batch account update failed: Account '%s' not found.", name)), nil
 		}
 		if u.Desc != nil {
-			core.SureID(core.AltAcc(name, u.Desc))
+			core.AltAcc(name, u.Desc)
 		}
 		if u.NewName != nil && *u.NewName != "" {
-			newName := core.SureName(*u.NewName) // 정규식 검증 및 중복 체크
-			core.SureID(core.AltRenameAcc(name, newName))
+			newName, err := core.SureName(*u.NewName) // 정규식 검증 및 중복 체크
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+			}
+
+			core.AltRenameAcc(name, newName)
 			name = newName
 		}
 		updatedNames = append(updatedNames, name)
@@ -375,7 +404,11 @@ func handleDeleteAccount(ctx context.Context, request mcp.CallToolRequest) (res 
 	args := request.GetArguments()
 	name := args["name"].(string)
 
-	core.SureID(core.DelAcc(name))
+	if _, err := core.GetAccByName(name); err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Account deletion failed: Account '%s' not found.", name)), nil
+	}
+
+	core.DelAcc(name)
 	return mcp.NewToolResultText(fmt.Sprintf("Account '%s' deleted successfully", name)), nil
 }
 
@@ -401,22 +434,37 @@ func handleGetTransactions(ctx context.Context, request mcp.CallToolRequest) (re
 			fmt.Sscanf(v, "%d", &id)
 		}
 
-		if core.GetTxnByID(id).ID == -1 {
+		txn, err := core.GetTxnByID(id)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+		}
+		if txn.ID == -1 {
 			return mcp.NewToolResultText(fmt.Sprintf("Transaction #%d not found.", id)), nil
 		}
 
 		ret = []int64{id}
 	} else if desc != "" {
-		ret = core.GetTxnByDesc(desc)
+		ret, err = core.GetTxnByDesc(desc)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+		}
 	} else if timeRange != "" {
 		tokens := strings.Split(timeRange, "~")
 		var A, B *int64
 		if len(tokens) > 0 && tokens[0] != "" {
-			ts := core.ParseTime(tokens[0])
+			ts, err := core.ParseTime(tokens[0])
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+			}
+
 			A = &ts
 		}
 		if len(tokens) > 1 && tokens[1] != "" {
-			ts := core.ParseTime(tokens[1])
+			ts, err := core.ParseTime(tokens[1])
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+			}
+
 			B = &ts
 		}
 		ret = core.GetTxnByTime(A, B)
@@ -438,19 +486,31 @@ func handleCreateTransaction(ctx context.Context, request mcp.CallToolRequest) (
 	desc, _ := args["desc"].(string)
 	timeStr, _ := args["time"].(string)
 
-	pats := ParseTxnPattern(recordStr)
-	timestamp := time.Now().UTC().Unix()
-	if timeStr != "" {
-		timestamp = core.ParseTime(timeStr)
+	pats, err := ParseTxnPattern(recordStr)
+	if err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Transaction creation failed: %v", err)), nil
 	}
 
-	tid := core.NewTxn(desc, timestamp)
+	timestamp := time.Now().UTC().Unix()
+	if timeStr != "" {
+		timestamp, err = core.ParseTime(timeStr)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Transaction creation failed: %v", err)), nil
+		}
+	}
+
+	tid, err := core.NewTxn(desc, timestamp)
+	if err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Transaction creation failed: %v", err)), nil
+	}
+
 	for _, p := range pats {
-		aid := core.GetAccByName(p.Name)
-		if aid == -1 {
+		aid, err := core.GetAccByName(p.Name)
+		if err != nil {
 			core.DelTxn(tid)
 			return mcp.NewToolResultText(fmt.Sprintf("Transaction creation failed: Account '%s' not found. Please create it first.", p.Name)), nil
 		}
+
 		core.NewRecord(tid, aid, p.Amount)
 	}
 	return mcp.NewToolResultText(fmt.Sprintf("txn #%d created", tid)), nil
@@ -477,16 +537,27 @@ func handleBatchCreateTransactions(ctx context.Context, request mcp.CallToolRequ
 
 	var createdIDs []string
 	for _, t := range txns {
-		pats := ParseTxnPattern(t.Record)
-		timestamp := time.Now().UTC().Unix()
-		if t.Time != "" {
-			timestamp = core.ParseTime(t.Time)
+		pats, err := ParseTxnPattern(t.Record)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Batch transaction creation failed: %v", err)), nil
 		}
 
-		tid := core.NewTxn(t.Desc, timestamp)
+		timestamp := time.Now().UTC().Unix()
+		if t.Time != "" {
+			timestamp, err = core.ParseTime(t.Time)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Batch transaction creation failed: %v", err)), nil
+			}
+		}
+
+		tid, err := core.NewTxn(t.Desc, timestamp)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Batch transaction creation failed: %v", err)), nil
+		}
+
 		for _, p := range pats {
-			aid := core.GetAccByName(p.Name)
-			if aid == -1 {
+			aid, err := core.GetAccByName(p.Name)
+			if err != nil {
 				core.DelTxn(tid)
 				return mcp.NewToolResultText(fmt.Sprintf("Batch transaction creation failed: Account '%s' not found.", p.Name)), nil
 			}
@@ -526,12 +597,16 @@ func handleUpdateTransaction(ctx context.Context, request mcp.CallToolRequest) (
 	var timePtr *int64
 	if timeArg, ok := args["time"]; ok {
 		if timeStr, ok := timeArg.(string); ok && timeStr != "" {
-			ts := core.ParseTime(timeStr)
+			ts, err := core.ParseTime(timeStr)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Transaction update failed: %v", err)), nil
+			}
+
 			timePtr = &ts
 		}
 	}
 
-	if core.AltTxn(id, descPtr, timePtr) == -1 {
+	if _, err = core.AltTxn(id, descPtr, timePtr); err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Transaction update failed: Transaction #%d not found.", id)), nil
 	}
 
@@ -557,18 +632,22 @@ func handleUpdateTransactionRecord(ctx context.Context, request mcp.CallToolRequ
 	}
 
 	recordStr := args["record"].(string)
-	pats := ParseTxnPattern(recordStr)
+	pats, err := ParseTxnPattern(recordStr)
+	if err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Transaction record update failed: %v", err)), nil
+	}
 
 	var records []core.Record
 	for _, p := range pats {
-		aid := core.GetAccByName(p.Name)
-		if aid == -1 {
+		aid, err := core.GetAccByName(p.Name)
+		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Transaction record update failed: Account '%s' not found. Please check the spelling or create it first.", p.Name)), nil
 		}
+
 		records = append(records, core.Record{TID: id, AID: aid, Amount: p.Amount})
 	}
 
-	if core.AltTxnRecord(id, records) == -1 {
+	if _, err = core.AltTxnRecord(id, records); err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Transaction record update failed: Transaction #%d not found or invalid.", id)), nil
 	}
 
@@ -594,16 +673,21 @@ func handleBatchUpdateTransactionRecords(ctx context.Context, request mcp.CallTo
 
 	var updatedIDs []string
 	for _, u := range updates {
-		pats := ParseTxnPattern(u.Record)
+		pats, err := ParseTxnPattern(u.Record)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Batch transaction record update failed: %v", err)), nil
+		}
+
 		var records []core.Record
 		for _, p := range pats {
-			aid := core.GetAccByName(p.Name)
-			if aid == -1 {
+			aid, err := core.GetAccByName(p.Name)
+			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Batch transaction record update failed: Account '%s' not found. Please check spelling or create it first.", p.Name)), nil
 			}
+
 			records = append(records, core.Record{TID: u.ID, AID: aid, Amount: p.Amount})
 		}
-		if core.AltTxnRecord(u.ID, records) == -1 {
+		if _, err = core.AltTxnRecord(u.ID, records); err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Batch transaction record update failed: Transaction #%d not found or invalid.", u.ID)), nil
 		}
 		updatedIDs = append(updatedIDs, fmt.Sprintf("%d", u.ID))
@@ -633,10 +717,14 @@ func handleBatchUpdateTransactions(ctx context.Context, request mcp.CallToolRequ
 	for _, u := range updates {
 		var timePtr *int64
 		if u.Time != nil && *u.Time != "" {
-			ts := core.ParseTime(*u.Time)
+			ts, err := core.ParseTime(*u.Time)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Batch transaction update failed: %v", err)), nil
+			}
+
 			timePtr = &ts
 		}
-		if core.AltTxn(u.ID, u.Desc, timePtr) == -1 {
+		if _, err = core.AltTxn(u.ID, u.Desc, timePtr); err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Batch transaction update failed: Transaction #%d not found.", u.ID)), nil
 		}
 
@@ -663,7 +751,7 @@ func handleDeleteTransaction(ctx context.Context, request mcp.CallToolRequest) (
 		fmt.Sscanf(v, "%d", &id)
 	}
 
-	if core.DelTxn(id) == -1 {
+	if _, err = core.DelTxn(id); err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Transaction deletion failed: Transaction #%d not found.", id)), nil
 	}
 
@@ -686,7 +774,7 @@ func handleBatchDeleteTransactions(ctx context.Context, request mcp.CallToolRequ
 
 	var deletedIDs []string
 	for _, id := range ids {
-		if core.DelTxn(id) == -1 {
+		if _, err = core.DelTxn(id); err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Batch transaction deletion failed: Transaction #%d not found.", id)), nil
 		}
 		deletedIDs = append(deletedIDs, fmt.Sprintf("%d", id))
@@ -714,20 +802,20 @@ func handleUpdateTag(ctx context.Context, request mcp.CallToolRequest) (res *mcp
 	args := request.GetArguments()
 	name := args["name"].(string)
 
-	if core.GetTagByName(name) == -1 {
+	if _, err = core.GetTagByName(name); err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Tag update failed: Tag '%s' not found.", name)), nil
 	}
 
 	if descArg, ok := args["desc"]; ok {
 		if desc, ok := descArg.(string); ok {
-			core.SureID(core.AltTag(name, &desc))
+			core.AltTag(name, &desc)
 		}
 	}
 
 	if newNameArg, ok := args["new_name"]; ok {
 		if newName, ok := newNameArg.(string); ok && newName != "" {
 			core.SureName(newName)
-			if core.AltRenameTag(name, newName) == -2 {
+			if _, err = core.AltRenameTag(name, newName); err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Tag rename failed: Tag '%s' already exists.", newName)), nil
 			}
 			name = newName
@@ -757,16 +845,16 @@ func handleBatchUpdateTags(ctx context.Context, request mcp.CallToolRequest) (re
 	var updatedNames []string
 	for _, u := range updates {
 		name := u.Name
-		if core.GetTagByName(name) == -1 {
+		if _, err = core.GetTagByName(name); err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Batch tag update failed: Tag '%s' not found.", name)), nil
 		}
 		if u.Desc != nil {
-			core.SureID(core.AltTag(name, u.Desc))
+			core.AltTag(name, u.Desc)
 		}
 		if u.NewName != nil && *u.NewName != "" {
-			newName := core.SureName(*u.NewName)
-			if core.AltRenameTag(name, newName) == -2 {
-				return mcp.NewToolResultText(fmt.Sprintf("Batch tag update failed: Tag '%s' already exists.", newName)), nil
+			newName, err := core.SureName(*u.NewName)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Batch tag update failed: %v", err)), nil
 			}
 			name = newName
 		}
@@ -800,7 +888,7 @@ func handleDeleteTag(ctx context.Context, request mcp.CallToolRequest) (res *mcp
 	args := request.GetArguments()
 	name := args["name"].(string)
 
-	core.SureID(core.DelTag(name))
+	core.DelTag(name)
 	return mcp.NewToolResultText(fmt.Sprintf("Tag '%s' deleted successfully", name)), nil
 }
 

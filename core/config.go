@@ -4,24 +4,23 @@ type Config struct {
 	Currency string
 }
 
-func InitConfig() {
+func LoadConfig() error {
 	var config Config
 	var err error
 
 	if config, err = GetConfig(); err != nil {
 		stmt := `insert into config(key, currency) values(?,?)`
 		_, err = DB.Exec(stmt, "currency", Code)
-		if err != nil {
-			panic(err)
-		}
+
+		return err
 	}
 
-	if config.Currency != Code {
-		Code = config.Currency
-	}
+	Code = config.Currency
+
+	return nil
 }
 func GetConfig() (Config, error) {
-	ChkDB()
+	MustDB()
 
 	var ret Config
 	stmt := `select currency from config`
@@ -33,7 +32,7 @@ func GetConfig() (Config, error) {
 	return ret, nil
 }
 func SetConfig(config Config) error {
-	ChkDB()
+	MustDB()
 
 	stmt := `update config set currency=?`
 	_, err := DB.Exec(stmt, config.Currency)

@@ -10,7 +10,7 @@ import (
 )
 
 func Proc(cmd cli.Cmd) error {
-	if cmd.St.Param != len(cmd.Pa) || len(cmd.St.Flags) < len(cmd.Fl) {
+	if cmd.St.Param > len(cmd.Pa) || len(cmd.St.Flags) < len(cmd.Fl) {
 		fmt.Println(cmd.St.HelpString())
 		return nil
 	}
@@ -100,7 +100,10 @@ func Proc(cmd cli.Cmd) error {
 }
 func Open(cmd cli.Cmd) {
 	path := cmd.Pa[0]
-	core.Open(path + ".db")
+
+	if err := core.Open(path + ".db"); err != nil {
+		panic(err)
+	}
 }
 func Close(cmd cli.Cmd) {
 	core.Close()
@@ -114,7 +117,10 @@ func AltCode(cmd cli.Cmd) {
 
 	fmt.Printf("Currency code changed to %s\n", core.Code)
 
-	core.SetConfig(core.Config{
+	if err := core.SetConfig(core.Config{
 		Currency: core.Code,
-	})
+	}); err != nil {
+		fmt.Printf("Error saving currency to config: %v\n", err)
+		return
+	}
 }

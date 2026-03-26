@@ -8,7 +8,14 @@ import (
 
 func NewAcc(cmd cli.Cmd) {
 	var acc core.Acc
-	acc.Name = core.SureName(cmd.Pa[0])
+	var err error
+
+	acc.Name, err = core.SureName(cmd.Pa[0])
+
+	if err != nil {
+		panic(err)
+	}
+
 	for _, fl := range cmd.Fl {
 		switch fl.F.Name {
 		case "desc":
@@ -16,15 +23,23 @@ func NewAcc(cmd cli.Cmd) {
 		}
 	}
 
-	acc.ID = core.NewAcc(acc.Name, acc.Desc)
+	acc.ID, err = core.NewAcc(acc.Name, acc.Desc)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("account #%d created\n", acc.ID)
 }
+
 func GetAcc(cmd cli.Cmd) {
 	ret := core.GetAcc()
 	fmt.Println(core.PrintAccs(ret))
 }
 func GetAccByName(cmd cli.Cmd) {
-	var id = core.SureID(core.GetAccByName(cmd.Pa[0]))
+	id, err := core.GetAccByName(cmd.Pa[0])
+	if err != nil {
+		panic(err)
+	}
+
 	fmt.Println(core.PrintAccs([]int64{id}))
 }
 func GetAccByDesc(cmd cli.Cmd) {
@@ -40,7 +55,7 @@ func AltAcc(cmd cli.Cmd) {
 		}
 	}
 
-	core.SureID(core.AltAcc(cmd.Pa[0], desc))
+	core.AltAcc(cmd.Pa[0], desc)
 }
 func AltAccRename(cmd cli.Cmd) {
 	var old, new string
@@ -49,14 +64,17 @@ func AltAccRename(cmd cli.Cmd) {
 
 	core.SureName(new)
 
-	core.SureID(core.AltRenameAcc(old, new))
+	core.AltRenameAcc(old, new)
 }
 func DelAcc(cmd cli.Cmd) {
-	core.SureID(core.DelAcc(cmd.Pa[0]))
+	core.DelAcc(cmd.Pa[0])
 }
 func GetAccChild(cmd cli.Cmd) {
 	name := cmd.Pa[0]
-	core.SureID(core.GetAccByName(cmd.Pa[0]))
+	_, err := core.GetAccByName(cmd.Pa[0])
+	if err != nil {
+		panic(err)
+	}
 
 	ids := core.GetAccByPrefix(name)
 	core.PrintAccs(ids)

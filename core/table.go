@@ -89,8 +89,14 @@ func (t *Table) Acc(ptn string) ast.List {
 	for id := range t.ids {
 		r := GetRecordByTID(id)
 		for _, rid := range r {
-			record := GetRecordByID(rid)
-			acc := GetAccByID(record.AID)
+			record, err := GetRecordByID(rid)
+			if err != nil {
+				panic(err)
+			}
+			acc, err := GetAccByID(record.AID)
+			if err != nil {
+				panic(err)
+			}
 
 			if Search(acc.Name, ptn) {
 				ret = ret.Append(
@@ -107,7 +113,10 @@ func (t *Table) FilterPeriod(st, ed *int64) *Table {
 
 	if st != nil && ed != nil {
 		for tid := range t.ids {
-			txn := GetTxnByID(tid)
+			txn, err := GetTxnByID(tid)
+			if err != nil {
+				panic(err)
+			}
 
 			if *st < txn.Time && txn.Time < *ed {
 				ret = append(ret, txn.ID)
@@ -115,7 +124,10 @@ func (t *Table) FilterPeriod(st, ed *int64) *Table {
 		}
 	} else if st != nil {
 		for tid := range t.ids {
-			txn := GetTxnByID(tid)
+			txn, err := GetTxnByID(tid)
+			if err != nil {
+				panic(err)
+			}
 
 			if *st < txn.Time {
 				ret = append(ret, txn.ID)
@@ -123,7 +135,10 @@ func (t *Table) FilterPeriod(st, ed *int64) *Table {
 		}
 	} else if ed != nil {
 		for tid := range t.ids {
-			txn := GetTxnByID(tid)
+			txn, err := GetTxnByID(tid)
+			if err != nil {
+				panic(err)
+			}
 
 			if txn.Time < *ed {
 				ret = append(ret, txn.ID)
@@ -143,16 +158,22 @@ func (t *Table) FilterPeriod(st, ed *int64) *Table {
 }
 func (t *Table) ATag(name string) ast.List {
 	var ret ast.List
-	var tagid = GetTagByName(name)
-	if tagid == -1 {
-		panic(ErrCannotFind)
+	var tagid, err = GetTagByName(name)
+	if err != nil {
+		panic(err)
 	}
 
 	for id := range t.ids {
 		r := GetRecordByTID(id)
 		for _, rid := range r {
-			record := GetRecordByID(rid)
-			acc := GetAccByID(record.AID)
+			record, err := GetRecordByID(rid)
+			if err != nil {
+				panic(err)
+			}
+			acc, err := GetAccByID(record.AID)
+			if err != nil {
+				panic(err)
+			}
 
 			if GetTagAcc(tagid, acc.ID) {
 				ret = ret.Append(
@@ -166,15 +187,18 @@ func (t *Table) ATag(name string) ast.List {
 }
 func (t *Table) TTag(name string) *Table {
 	var ret = []int64{}
-	var tagid = GetTagByName(name)
-	if tagid == -1 {
-		panic(ErrCannotFind)
+	var tagid, err = GetTagByName(name)
+	if err != nil {
+		panic(err)
 	}
 
 	for id := range t.ids {
 		r := GetRecordByTID(id)
 		for _, rid := range r {
-			record := GetRecordByID(rid)
+			record, err := GetRecordByID(rid)
+			if err != nil {
+				panic(err)
+			}
 
 			if GetTagTxn(tagid, record.TID) {
 				ret = append(ret, record.TID)
