@@ -20,12 +20,6 @@ func NewRecord(tid int64, aid int64, amount *money.Money) (int64, error) {
 		return 0, err
 	}
 
-	stmt = `insert into record(tid, aid, amount) values(?,?,?)`
-	res, err = DB.Exec(stmt, tid, aid, amount.Amount())
-	if err != nil {
-		return 0, err
-	}
-
 	ret, err := res.LastInsertId()
 	if err != nil {
 		return 0, err

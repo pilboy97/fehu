@@ -136,6 +136,7 @@ func NewTxn(cmd cli.Cmd) {
 
 	for _, p := range patterns {
 		aid, err := core.GetAccByName(p.Name)
+
 		if err != nil {
 			core.DelTxn(txnID) // Rollback
 			fmt.Printf("Error: account '%s' not found. Transaction rolled back.\n", p.Name)
