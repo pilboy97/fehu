@@ -259,23 +259,15 @@ func GetTxnByTime(cmd cli.Cmd) {
 		}
 
 		A = &ts
-		if err != nil {
-			fmt.Println("Error parsing start time:", err)
-			return
-		}
 	}
 	if len(tokens[1]) != 0 {
 		ts, err := core.ParseTime(tokens[1])
 		if err != nil {
-			fmt.Println("Error parsing start time:", err)
+			fmt.Println("Error parsing end time:", err)
 			return
 		}
 
 		B = &ts
-		if err != nil {
-			fmt.Println("Error parsing end time:", err)
-			return
-		}
 	} // TODO: Handle error from ParseTime
 
 	var ret = core.GetTxnByTime(A, B)
