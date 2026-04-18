@@ -1,6 +1,9 @@
 package core
 
-import "ast"
+import (
+	"ast"
+	"fmt"
+)
 
 var Vars = map[string]ast.Value{
 	"count":     ast.Variable{Name: "count"},
@@ -52,28 +55,32 @@ func ChkVar(name string) error { // This function seems to check if a variable e
 	return row.Scan(&n, &s)
 }
 
-func LoadAllDefsFromDB() {
+func LoadAllDefsFromDB() error {
 	MustDB()
 
-	var ret = make(map[string]string)
-	stmt := `select name, stmt from vars`
-	rows, err := DB.Query(stmt)
+	rows, err := DB.Query(`select name, stmt from vars`)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer rows.Close()
 
+	var defs = make(map[string]string)
 	for rows.Next() {
 		var name, stmt string
-		err = rows.Scan(&name, &stmt)
-		if err != nil {
-			panic(err)
+		if err = rows.Scan(&name, &stmt); err != nil {
+			return err
 		}
-
-		ret[name] = stmt
+		defs[name] = stmt
 	}
 
-	for name, stmt := range ret {
-		DefStmt(name, stmt)
+	for name, stmt := range defs {
+		if _, ok := Vars[name]; ok {
+			// 이미 메모리에 정의된 변수는 건너뜀 (같은 프로세스에서 DB를 재오픈하는 경우)
+			continue
+		}
+		if err := DefStmt(name, stmt); err != nil {
+			return fmt.Errorf("loading var %q: %w", name, err)
+		}
 	}
+	return nil
 }

@@ -92,23 +92,22 @@ func ParseTime(str string) (int64, error) {
 	return ret.UTC().Unix(), nil
 }
 
-func ParsePeriod(st, ed string) Period {
+func ParsePeriod(st, ed string) (Period, error) {
 	var A, B *int64
 
 	if len(st) != 0 {
 		ts, err := ParseTime(st)
 		if err != nil {
-			// Handle error, perhaps return error from ParsePeriod
+			return Period{}, err
 		}
 		A = &ts
 	}
 	if len(ed) != 0 {
 		ts, err := ParseTime(ed)
 		if err != nil {
-			// Handle error, perhaps return error from ParsePeriod
+			return Period{}, err
 		}
 		B = &ts
 	}
-
-	return Period{St: A, Ed: B}
+	return Period{St: A, Ed: B}, nil
 }

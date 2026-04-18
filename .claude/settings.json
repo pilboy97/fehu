@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./core_test.exe -test.v -test.run \"TestParsePeriod|TestParseTime\")",
+      "Bash(./core_test.exe -test.v)",
+      "Bash(bash validate.sh)"
+    ]
+  }
+}

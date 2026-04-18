@@ -25,27 +25,25 @@ func NewAcc(name string, desc string) (int64, error) {
 	CreateTagInDesc(desc, []int64{ret}, nil)
 	return ret, nil
 }
-func GetAcc() []int64 {
+func GetAcc() ([]int64, error) {
 	MustDB()
 
-	var ret []int64
 	stmt := `select id from acc order by id`
-	row, err := DB.Query(stmt)
+	rows, err := DB.Query(stmt)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	defer rows.Close()
 
-	ret = make([]int64, 0)
-	for row.Next() {
+	ret := make([]int64, 0)
+	for rows.Next() {
 		var id int64
-		err = row.Scan(&id)
-		if err != nil {
-			panic(err)
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
 		}
-
 		ret = append(ret, id)
 	}
-	return ret
+	return ret, nil
 }
 func GetAccByID(aid int64) (Acc, error) {
 	// TODO: ChkDB()는 panic을 발생시키므로, 여기서는 error를 반환하도록 변경해야 합니다.
@@ -80,55 +78,43 @@ func GetAccByName(name string) (int64, error) {
 
 	return ret, nil
 }
-func GetAccByPrefix(name string) []int64 {
+func GetAccByPrefix(name string) ([]int64, error) {
 	MustDB()
 
-	var ret []int64
-
-	name = name + "%"
-
-	stmt := `select id from acc where name like ? order by id`
-	row, err := DB.Query(stmt, name)
+	rows, err := DB.Query(`select id from acc where name like ? order by id`, name+"%")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	defer rows.Close()
 
-	ret = make([]int64, 0)
-	for row.Next() {
+	ret := make([]int64, 0)
+	for rows.Next() {
 		var id int64
-		err = row.Scan(&id)
-		if err != nil {
-			panic(err)
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
 		}
-
 		ret = append(ret, id)
 	}
-
-	return ret
+	return ret, nil
 }
-func GetAccByDesc(desc string) []int64 {
+func GetAccByDesc(desc string) ([]int64, error) {
 	MustDB()
 
-	var ret []int64
-
-	stmt := `select id from acc where instr(desc,?) > 0 order by id`
-	row, err := DB.Query(stmt, desc)
+	rows, err := DB.Query(`select id from acc where instr(desc,?) > 0 order by id`, desc)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	defer rows.Close()
 
-	ret = make([]int64, 0)
-	for row.Next() {
+	ret := make([]int64, 0)
+	for rows.Next() {
 		var id int64
-		err = row.Scan(&id)
-		if err != nil {
-			panic(err)
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
 		}
-
 		ret = append(ret, id)
 	}
-
-	return ret
+	return ret, nil
 }
 func GetAccAmount(id int64) (*money.Money, error) {
 	MustDB()
@@ -145,9 +131,15 @@ func GetAccAmount(id int64) (*money.Money, error) {
 	var ret *money.Money
 	ret = money.New(0, Code)
 
-	records := GetRecordByAID(id)
+	records, err := GetRecordByAID(id)
+	if err != nil {
+		return &money.Money{}, err
+	}
 	for _, rid := range records {
 		record, err := GetRecordByID(rid)
+		if err != nil {
+			return &money.Money{}, err
+		}
 		ret, err = ret.Add(record.Amount)
 		if err != nil {
 			return &money.Money{}, err
@@ -191,11 +183,6 @@ func AltRenameAcc(old, neo string) (int64, error) {
 	MustDB()
 
 	ID, err := GetAccByName(old)
-	if err != nil {
-		return 0, err
-	}
-
-	ID, err = GetAccByName(old)
 	if err != nil {
 		return 0, err
 	}

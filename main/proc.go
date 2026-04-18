@@ -20,15 +20,15 @@ func Proc(cmd cli.Cmd) error {
 		fmt.Println(cmd.St.HelpString())
 
 	case openState:
-		Open(cmd)
+		return Open(cmd)
 	case closeState:
 		Close(cmd)
 	case quitState:
 		return cli.ErrShutdownSystem
 	case calcState:
-		Calc(cmd)
+		return Calc(cmd)
 	case defState:
-		Def(cmd)
+		return Def(cmd)
 
 	case newState:
 		fmt.Println(cmd.St.HelpString())
@@ -40,57 +40,57 @@ func Proc(cmd cli.Cmd) error {
 		fmt.Println(cmd.St.HelpString())
 
 	case newAccState:
-		NewAcc(cmd)
+		return NewAcc(cmd)
 	case getAccState:
-		GetAcc(cmd)
+		return GetAcc(cmd)
 	case getAccByNameState:
-		GetAccByName(cmd)
+		return GetAccByName(cmd)
 	case getAccByDescState:
-		GetAccByDesc(cmd)
+		return GetAccByDesc(cmd)
 	case getAccChildState:
-		GetAccChild(cmd)
+		return GetAccChild(cmd)
 	case altAccState:
-		AltAcc(cmd)
+		return AltAcc(cmd)
 	case altAccRenameState:
-		AltAccRename(cmd)
+		return AltAccRename(cmd)
 	case altCodeState:
-		AltCode(cmd)
+		return AltCode(cmd)
 	case delAccState:
-		DelAcc(cmd)
+		return DelAcc(cmd)
 
 	case newTxnState:
-		NewTxn(cmd)
+		return NewTxn(cmd)
 
 	case getTxnState:
-		GetTxn(cmd)
+		return GetTxn(cmd)
 	case getTxnByIDState:
-		GetTxnByID(cmd)
+		return GetTxnByID(cmd)
 	case getTxnByDescState:
-		GetTxnByDesc(cmd)
+		return GetTxnByDesc(cmd)
 	case getTxnByTimeState:
-		GetTxnByTime(cmd)
+		return GetTxnByTime(cmd)
 
 	case altTxnState:
-		AltTxn(cmd)
+		return AltTxn(cmd)
 	case altTxnRecordState:
-		AltTxnRecord(cmd)
+		return AltTxnRecord(cmd)
 	case delTxnState:
-		DelTxn(cmd)
+		return DelTxn(cmd)
 
 	case newTagState:
-		NewTag(cmd)
+		return NewTag(cmd)
 	case getTagState:
-		GetTag(cmd)
+		return GetTag(cmd)
 	case getTagByNameState:
-		GetTagByName(cmd)
+		return GetTagByName(cmd)
 	case getTagByDescState:
-		GetTagByDesc(cmd)
+		return GetTagByDesc(cmd)
 	case altTagState:
-		AltTag(cmd)
+		return AltTag(cmd)
 	case altTagRenameState:
-		AltTagRename(cmd)
+		return AltTagRename(cmd)
 	case delTagState:
-		DelTag(cmd)
+		return DelTag(cmd)
 
 	default:
 		log.Printf("%s is not supported yet", cmd.St.Name)
@@ -98,17 +98,20 @@ func Proc(cmd cli.Cmd) error {
 
 	return nil
 }
-func Open(cmd cli.Cmd) {
-	path := cmd.Pa[0]
 
+func Open(cmd cli.Cmd) error {
+	path := cmd.Pa[0]
 	if err := core.Open(path + ".db"); err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
+
 func Close(cmd cli.Cmd) {
 	core.Close()
 }
-func AltCode(cmd cli.Cmd) {
+
+func AltCode(cmd cli.Cmd) error {
 	code := cmd.Pa[0]
 	core.Code = code
 	if money.GetCurrency(core.Code) == nil {
@@ -120,7 +123,7 @@ func AltCode(cmd cli.Cmd) {
 	if err := core.SetConfig(core.Config{
 		Currency: core.Code,
 	}); err != nil {
-		fmt.Printf("Error saving currency to config: %v\n", err)
-		return
+		return fmt.Errorf("error saving currency to config: %w", err)
 	}
+	return nil
 }

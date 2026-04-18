@@ -13,9 +13,9 @@ func NewEnv() *Env {
 func (e *Env) Path() string {
 	return core.DBPath
 }
-func (e *Env) Open(path string) {
+func (e *Env) Open(path string) error {
 	core.DBPath = path
-	core.Open(path)
+	return core.Open(path)
 }
 func (e *Env) Close() {
 	core.DBPath = ""

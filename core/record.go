@@ -72,53 +72,44 @@ func GetRecordByTAID(tid, aid int64) Record {
 
 	return ret
 }
-func GetRecordByTID(tid int64) []int64 {
+func GetRecordByTID(tid int64) ([]int64, error) {
 	MustDB()
 
-	var ret []int64
-
-	stmt := `select id from record where tid=?`
-	row, err := DB.Query(stmt, tid)
+	rows, err := DB.Query(`select id from record where tid=?`, tid)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	defer rows.Close()
 
-	ret = make([]int64, 0)
-	for row.Next() {
+	ret := make([]int64, 0)
+	for rows.Next() {
 		var id int64
-		err = row.Scan(&id)
-		if err != nil {
-			panic(err)
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
 		}
-
 		ret = append(ret, id)
 	}
-
-	return ret
+	return ret, nil
 }
-func GetRecordByAID(aid int64) []int64 {
+
+func GetRecordByAID(aid int64) ([]int64, error) {
 	MustDB()
 
-	var ret []int64
-
-	stmt := `select id from record where aid=?`
-	row, err := DB.Query(stmt, aid)
+	rows, err := DB.Query(`select id from record where aid=?`, aid)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	defer rows.Close()
 
-	ret = make([]int64, 0)
-	for row.Next() {
+	ret := make([]int64, 0)
+	for rows.Next() {
 		var id int64
-		err = row.Scan(&id)
-		if err != nil {
-			panic(err)
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
 		}
-
 		ret = append(ret, id)
 	}
-
-	return ret
+	return ret, nil
 }
 func AltRecord(id int64, tid *int64, aid *int64, amount *money.Money) (int64, error) {
 	MustDB()

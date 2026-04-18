@@ -145,7 +145,9 @@ func Open(path string) error {
 	if err := LoadConfig(); err != nil {
 		return err
 	}
-	LoadAllDefsFromDB()
+	if err := LoadAllDefsFromDB(); err != nil {
+		return err
+	}
 
 	return nil
 }

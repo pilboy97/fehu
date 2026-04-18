@@ -326,7 +326,10 @@ func FCall(root *ast.Ast) ast.Value {
 			panic(ErrWrongType)
 		}
 
-		P := ParsePeriod(st, ed)
+		P, err := ParsePeriod(st, ed)
+		if err != nil {
+			panic(err)
+		}
 
 		return table.FilterPeriod(P.St, P.Ed)
 	case "union":

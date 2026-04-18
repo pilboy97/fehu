@@ -20,54 +20,51 @@ func CreateTagInDesc(desc string, aid []int64, tid []int64) {
 		var id int64
 		id, err := GetTagByName(tag)
 		if err != nil {
-			id = NewTag(tag, "")
+			id, _ = NewTag(tag, "")
 		}
 
 		for _, a := range aid {
 			NewTagAcc(id, a)
 		}
 		for _, t := range tid {
-			NewTagTxn(id, t)
+			NewTagTxn(id, t) //nolint:errcheck
 		}
 	}
 }
 
-func NewTag(name string, desc string) int64 {
+func NewTag(name string, desc string) (int64, error) {
 	MustDB()
 
 	stmt := `insert into tag(name, desc) values(?,?)`
 	res, err := DB.Exec(stmt, name, desc)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 
 	ret, err := res.LastInsertId()
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
-	return ret
+	return ret, nil
 }
-func GetTag() []int64 {
+func GetTag() ([]int64, error) {
 	MustDB()
 
-	var ret []int64
-	stmt := `select id from tag order by id`
-	row, err := DB.Query(stmt)
+	rows, err := DB.Query(`select id from tag order by id`)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	defer rows.Close()
 
-	ret = make([]int64, 0)
-	for row.Next() {
+	ret := make([]int64, 0)
+	for rows.Next() {
 		var id int64
-		err = row.Scan(&id)
-		if err != nil {
-			panic(err)
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
 		}
-
 		ret = append(ret, id)
 	}
-	return ret
+	return ret, nil
 }
 func GetTagByID(aid int64) (Tag, error) {
 	// TODO: ChkDB()는 panic을 발생시키므로, 여기서는 error를 반환하도록 변경해야 합니다.
@@ -95,36 +92,31 @@ func GetTagByName(name string) (int64, error) {
 	err := DB.QueryRow(stmt, name).Scan(&ret)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			panic(err)
+			return 0, err
 		}
 		return 0, ErrCannotFind(name)
 	}
 
 	return ret, nil
 }
-func GetTagByDesc(desc string) []int64 {
+func GetTagByDesc(desc string) ([]int64, error) {
 	MustDB()
 
-	var ret []int64
-
-	stmt := `select id from tag where instr(desc,?) > 0 order by id`
-	row, err := DB.Query(stmt, desc)
+	rows, err := DB.Query(`select id from tag where instr(desc,?) > 0 order by id`, desc)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	defer rows.Close()
 
-	ret = make([]int64, 0)
-	for row.Next() {
+	ret := make([]int64, 0)
+	for rows.Next() {
 		var id int64
-		err = row.Scan(&id)
-		if err != nil {
-			panic(err)
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
 		}
-
 		ret = append(ret, id)
 	}
-
-	return ret
+	return ret, nil
 }
 func GetTagAcc(tagid, aid int64) bool {
 	stmt := `select count(*) from tagacc where tagid=? and aid=?`
@@ -215,7 +207,9 @@ func AltRenameTag(old, neo string) (int64, error) {
 			}
 
 			newDesc := re.ReplaceAllString(acc.Desc, "#"+neo+"${1}")
-			DB.Exec(`update acc set desc=? where id=?`, newDesc, aid)
+			if _, err := DB.Exec(`update acc set desc=? where id=?`, newDesc, aid); err != nil {
+				return 0, err
+			}
 		}
 	}
 
@@ -242,7 +236,9 @@ func AltRenameTag(old, neo string) (int64, error) {
 			}
 
 			newDesc := re.ReplaceAllString(txn.Desc, "#"+neo+"${1}")
-			DB.Exec(`update txn set desc=? where id=?`, newDesc, tid)
+			if _, err := DB.Exec(`update txn set desc=? where id=?`, newDesc, tid); err != nil {
+				return 0, err
+			}
 		}
 	}
 
@@ -285,11 +281,13 @@ func NewTagAcc(tagid, aid int64) error {
 	return nil
 }
 
-func NewTagTxn(tagid, tid int64) {
+func NewTagTxn(tagid, tid int64) error {
+	MustDB()
 	stmt := `insert into tagtxn(tagid, tid) values(?,?)`
 	if _, err := DB.Exec(stmt, tagid, tid); err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 func PrintTags(tag []int64) string {

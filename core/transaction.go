@@ -34,12 +34,14 @@ func GetTxn() []int64 {
 	rows, err := DB.Query(stmt)
 	if err != nil {
 		panic(err)
-	} // TODO: Change to return error
+	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var id int64
-		rows.Scan(&id)
-
+		if err = rows.Scan(&id); err != nil {
+			panic(err)
+		}
 		ret = append(ret, id)
 	}
 
@@ -63,14 +65,16 @@ func GetTxnByID(tid int64) (Txn, error) {
 		return Txn{ID: -1}, ErrCannotFind(fmt.Sprintf("transaction with ID %d", tid))
 	}
 
-	records := GetRecordByTID(tid)
+	records, err := GetRecordByTID(tid)
+	if err != nil {
+		return Txn{}, err
+	}
 	ret.Record = make([]Record, len(records))
 
 	for i, rid := range records {
 		r, err := GetRecordByID(rid)
 		if err != nil {
-			// Handle error, perhaps log it or skip this record
-			continue
+			return Txn{}, err
 		}
 		ret.Record[i] = r
 	}
@@ -91,33 +95,23 @@ func GetTxnByTime(st *int64, ed *int64) []int64 {
 	switch {
 	case st != nil && ed != nil:
 		rows, err = DB.Query(`select id from txn where time between ? and ? order by time`, st, ed)
-		if err != nil {
-			return nil // Or handle the error appropriately
-		}
 	case st != nil:
 		rows, err = DB.Query(`select id from txn where time > ? order by time`, st)
-		if err != nil {
-			return nil // Or handle the error appropriately
-		}
 	case ed != nil:
 		rows, err = DB.Query(`select id from txn where time < ? order by time`, ed)
-		if err != nil {
-			return nil // Or handle the error appropriately
-		}
 	default:
 		rows, err = DB.Query(`select id from txn order by time`)
-		if err != nil {
-			return nil // Or handle the error appropriately
-		}
 	}
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var id int64
-		err = rows.Scan(&id)
-		if err != nil {
+		if err = rows.Scan(&id); err != nil {
 			panic(err)
 		}
-
 		ret = append(ret, id)
 	}
 
@@ -127,19 +121,18 @@ func GetTxnByDesc(desc string) ([]int64, error) {
 	MustDB()
 
 	stmt := `select id from txn where instr(desc,?) > 0 order by time`
-	row, err := DB.Query(stmt, desc)
+	rows, err := DB.Query(stmt, desc)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	defer rows.Close()
 
 	ret := make([]int64, 0)
-	for row.Next() {
+	for rows.Next() {
 		var id int64
-		err = row.Scan(&id)
-		if err != nil {
-			panic(err)
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
 		}
-
 		ret = append(ret, id)
 	}
 
@@ -201,7 +194,10 @@ func AltTxnRecord(tid int64, pat []Record) (int64, error) {
 		}
 	}
 
-	old := GetRecordByTID(tid)
+	old, err := GetRecordByTID(tid)
+	if err != nil {
+		return 0, err
+	}
 
 	for _, id := range old {
 		if _, err := DelRecord(id); err != nil {
@@ -216,12 +212,6 @@ func AltTxnRecord(tid int64, pat []Record) (int64, error) {
 		if _, err := NewRecord(tid, aid, amount); err != nil {
 			return 0, err
 		}
-	}
-
-	stmt := `delete from txn where id=?`
-	_, err = DB.Exec(stmt, tid)
-	if err != nil {
-		return 0, err
 	}
 
 	return tid, nil
@@ -271,10 +261,10 @@ func PrintTxn(id int64) string {
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
-	if txn.ID == -1 { // TODO: This check might be redundant if GetTxnByID returns error for not found
-		panic(ErrCannotFind("txn: " + fmt.Sprint(id)))
+	records, err := GetRecordByTID(id)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
 	}
-	var records = GetRecordByTID(id)
 
 	// UTC 타임스탬프를 로컬 시간으로 변환하여 출력
 	t := time.Unix(txn.Time, 0).Local()

@@ -116,7 +116,7 @@ func Tokenize(str string) []Token {
 			if !done {
 				tok.Sym = NAME
 				tok.Str = string(runes[i:])
-				tok.Location = i
+				tok.Location = len(ret)
 				tok.Depth = len(stack)
 				i = len(runes)
 			}

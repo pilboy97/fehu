@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build:*)",
+      "Bash(grep -n \"NewTagTxn\\\\|CreateTagInDesc\" /c/Users/minpi/Documents/GitHub/fehu/core/*.go)",
+      "Bash(grep -n \"DB.Query\\\\|rows, err\\\\|row, err\" /c/Users/minpi/Documents/GitHub/fehu/core/*.go)"
+    ]
+  }
+}

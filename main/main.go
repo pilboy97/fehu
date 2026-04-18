@@ -40,7 +40,9 @@ func main() {
 
 	// DB 자동 오픈 플래그가 있으면 MCP 서버 시작 전에도 DB를 엽니다.
 	if len(initDB) != 0 {
-		core.Open(initDB + ".db")
+		if err := core.Open(initDB + ".db"); err != nil {
+			log.Fatalf("failed to open database: %v", err)
+		}
 	}
 
 	// "mcp" 인자가 전달된 경우 일반 CLI/REPL 로직을 무시하고 MCP 서버만 단독 실행
@@ -88,41 +90,28 @@ func main() {
 	}
 
 	if len(cmd) != 0 {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Print(r)
-			}
-		}()
-
-		CLI.Exec(cmd)
+		if err := CLI.Exec(cmd); err != nil && err != cli.ErrShutdownSystem {
+			log.Print(err)
+		}
 	}
 
 	// 루프 실행
 	println("Fehu started")
 	var isAlive = true
-	// 프로그램 활성화 상태
 	for isAlive {
-		func() bool {
-			// 오류가 발생했다면 false를 리턴
+		func() {
 			defer func() {
-				//예외 처리
+				// 예상치 못한 panic 처리
 				if r := recover(); r != nil {
-					if e, ok := r.(error); ok {
-						//만약 프로그램 종료 예외라면
-						if e == cli.ErrShutdownSystem {
-							isAlive = false
-							// 프로그램 실행상태 변경 후 종료
-							return
-						}
-					}
 					log.Print(r)
 				}
 			}()
 
-			//표준 입력으로 입력받은 명령어 실행
-			CLI.Run(os.Stdin)
-			//정상 종료
-			return true
+			if err := CLI.Run(os.Stdin); err == cli.ErrShutdownSystem {
+				isAlive = false
+			} else if err != nil {
+				log.Print(err)
+			}
 		}()
 	}
 

@@ -45,7 +45,7 @@ func ParseTxnPattern(pat string) ([]Pattern, error) {
 	for _, ch := range records {
 
 		if !re.MatchString(ch) {
-			panic(ErrWrongTxnPattern)
+			return nil, ErrWrongTxnPattern
 		}
 
 		var dir bool = false
@@ -66,7 +66,7 @@ func ParseTxnPattern(pat string) ([]Pattern, error) {
 			dir = true
 			tok := strings.Split(ch, "<")
 			if len(tok) != 2 {
-				panic(ErrWrongTxnPattern)
+				return nil, ErrWrongTxnPattern
 			}
 
 			name, num = tok[0], tok[1]
@@ -102,14 +102,13 @@ func ParseTxnPattern(pat string) ([]Pattern, error) {
 	return ret, nil
 }
 
-func NewTxn(cmd cli.Cmd) {
+func NewTxn(cmd cli.Cmd) error {
 	var desc string
 	var timestamp int64
 	var patterns, err = ParseTxnPattern(cmd.Pa[0])
 
 	if err != nil {
-		fmt.Println("Error parsing transaction pattern:", err)
-		return
+		return fmt.Errorf("error parsing transaction pattern: %w", err)
 	}
 
 	timestamp = time.Now().UTC().Unix()
@@ -118,11 +117,10 @@ func NewTxn(cmd cli.Cmd) {
 		switch fl.F.Name {
 		case "desc":
 			desc = fl.V
-		case "time": // TODO: Handle error from ParseTime
+		case "time":
 			parsedTime, err := core.ParseTime(fl.V)
 			if err != nil {
-				fmt.Println("Error parsing time:", err)
-				return
+				return fmt.Errorf("error parsing time: %w", err)
 			}
 			timestamp = parsedTime
 		}
@@ -130,27 +128,25 @@ func NewTxn(cmd cli.Cmd) {
 
 	txnID, err := core.NewTxn(desc, timestamp)
 	if err != nil {
-		fmt.Println("Error creating transaction:", err)
-		return
+		return fmt.Errorf("error creating transaction: %w", err)
 	}
 
 	for _, p := range patterns {
 		aid, err := core.GetAccByName(p.Name)
-
 		if err != nil {
 			core.DelTxn(txnID) // Rollback
-			fmt.Printf("Error: account '%s' not found. Transaction rolled back.\n", p.Name)
-			return
+			return fmt.Errorf("account '%s' not found, transaction rolled back", p.Name)
 		}
 		if _, err := core.NewRecord(txnID, aid, p.Amount); err != nil {
 			core.DelTxn(txnID) // Rollback
-			fmt.Printf("Error: failed to create record for account '%s'. Transaction rolled back.\n", p.Name)
-			return
+			return fmt.Errorf("failed to create record for account '%s', transaction rolled back", p.Name)
 		}
 	}
 	fmt.Printf("Transaction #%d created\n", txnID)
+	return nil
 }
-func GetTxn(cmd cli.Cmd) {
+
+func GetTxn(cmd cli.Cmd) error {
 	var Name string
 	var err error
 
@@ -159,8 +155,7 @@ func GetTxn(cmd cli.Cmd) {
 		case "save":
 			Name, err = core.SureName(fl.V)
 			if err != nil {
-				fmt.Println("Invalid variable name")
-				return
+				return errors.New("invalid variable name")
 			}
 		}
 	}
@@ -171,8 +166,10 @@ func GetTxn(cmd cli.Cmd) {
 	if len(Name) != 0 {
 		core.Vars[Name] = core.NewTable(ret)
 	}
+	return nil
 }
-func GetTxnByID(cmd cli.Cmd) {
+
+func GetTxnByID(cmd cli.Cmd) error {
 	var Name string
 	var err error
 
@@ -181,15 +178,14 @@ func GetTxnByID(cmd cli.Cmd) {
 		case "save":
 			Name, err = core.SureName(fl.V)
 			if err != nil {
-				fmt.Println("Invalid variable name")
-				return
+				return errors.New("invalid variable name")
 			}
 		}
 	}
 
 	id, err := strconv.ParseInt(cmd.Pa[0], 10, 64)
 	if err != nil {
-		fmt.Println("Error parsing transaction ID:", err)
+		return fmt.Errorf("error parsing transaction ID: %w", err)
 	}
 
 	fmt.Println(core.PrintTxns([]int64{id}))
@@ -197,8 +193,10 @@ func GetTxnByID(cmd cli.Cmd) {
 	if len(Name) != 0 {
 		core.Vars[Name] = core.NewTable([]int64{id})
 	}
+	return nil
 }
-func GetTxnByDesc(cmd cli.Cmd) {
+
+func GetTxnByDesc(cmd cli.Cmd) error {
 	var Name string
 	var err error
 
@@ -207,8 +205,7 @@ func GetTxnByDesc(cmd cli.Cmd) {
 		case "save":
 			Name, err = core.SureName(fl.V)
 			if err != nil {
-				fmt.Println("Invalid variable name")
-				return
+				return errors.New("invalid variable name")
 			}
 		}
 	}
@@ -217,8 +214,7 @@ func GetTxnByDesc(cmd cli.Cmd) {
 
 	ids, err := core.GetTxnByDesc(desc)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		return err
 	}
 
 	fmt.Println(core.PrintTxns(ids))
@@ -226,8 +222,10 @@ func GetTxnByDesc(cmd cli.Cmd) {
 	if len(Name) != 0 {
 		core.Vars[Name] = core.NewTable(ids)
 	}
+	return nil
 }
-func GetTxnByTime(cmd cli.Cmd) {
+
+func GetTxnByTime(cmd cli.Cmd) error {
 	var Name string
 	var err error
 
@@ -236,8 +234,7 @@ func GetTxnByTime(cmd cli.Cmd) {
 		case "save":
 			Name, err = core.SureName(fl.V)
 			if err != nil {
-				fmt.Println("Invalid variable name")
-				return
+				return errors.New("invalid variable name")
 			}
 		}
 	}
@@ -246,7 +243,7 @@ func GetTxnByTime(cmd cli.Cmd) {
 	tokens := strings.Split(timepat, "~")
 
 	if len(tokens) != 2 {
-		fmt.Println("Error:", ErrWrongPeriodPattern)
+		return ErrWrongPeriodPattern
 	}
 
 	var A, B *int64
@@ -254,33 +251,30 @@ func GetTxnByTime(cmd cli.Cmd) {
 	if len(tokens[0]) != 0 {
 		ts, err := core.ParseTime(tokens[0])
 		if err != nil {
-			fmt.Println("Error parsing start time:", err)
-			return
+			return fmt.Errorf("error parsing start time: %w", err)
 		}
-
 		A = &ts
 	}
 	if len(tokens[1]) != 0 {
 		ts, err := core.ParseTime(tokens[1])
 		if err != nil {
-			fmt.Println("Error parsing end time:", err)
-			return
+			return fmt.Errorf("error parsing end time: %w", err)
 		}
-
 		B = &ts
-	} // TODO: Handle error from ParseTime
+	}
 
 	var ret = core.GetTxnByTime(A, B)
 	fmt.Println(core.PrintTxns(ret))
 	if len(Name) != 0 {
 		core.Vars[Name] = core.NewTable(ret)
 	}
+	return nil
 }
-func AltTxn(cmd cli.Cmd) {
+
+func AltTxn(cmd cli.Cmd) error {
 	id, err := strconv.ParseInt(cmd.Pa[0], 10, 64)
 	if err != nil {
-		fmt.Println("Error parsing transaction ID:", err)
-		return
+		return fmt.Errorf("error parsing transaction ID: %w", err)
 	}
 
 	var desc *string = nil
@@ -289,70 +283,65 @@ func AltTxn(cmd cli.Cmd) {
 		switch fl.F.Name {
 		case "desc":
 			desc = &cmd.Fl[i].V
-		case "time": // TODO: Handle error from ParseTime
+		case "time":
 			parsedTime, err := core.ParseTime(fl.V)
 			if err != nil {
-				fmt.Println("Error parsing time:", err)
-				return
+				return fmt.Errorf("error parsing time: %w", err)
 			}
 			timestamp = &parsedTime
 		}
 	}
 
 	if _, err := core.AltTxn(id, desc, timestamp); err != nil {
-		fmt.Println("Error altering transaction:", err)
-		return
+		return fmt.Errorf("error altering transaction: %w", err)
 	}
 	fmt.Printf("Transaction #%d updated successfully.\n", id)
+	return nil
 }
-func AltTxnRecord(cmd cli.Cmd) {
+
+func AltTxnRecord(cmd cli.Cmd) error {
 	id, err := strconv.ParseInt(cmd.Pa[0], 10, 64)
 	if err != nil {
-		fmt.Println("Error parsing transaction ID:", err)
-		return
+		return fmt.Errorf("error parsing transaction ID: %w", err)
 	}
 
 	pat := cmd.Pa[1]
 	pats, err := ParseTxnPattern(pat)
 	if err != nil {
-		fmt.Println("Error parsing transaction pattern:", err)
-		return
+		return fmt.Errorf("error parsing transaction pattern: %w", err)
 	}
 
 	records := make([]core.Record, len(pats))
 
-	for i, p := range pats { // TODO: Handle error from ParseTxnPattern
+	for i, p := range pats {
 		aid, err := core.GetAccByName(p.Name)
 		if err != nil {
-			fmt.Printf("Error: account '%s' not found.\n", p.Name)
-			return
+			return fmt.Errorf("account '%s' not found", p.Name)
 		}
-
-		amount := p.Amount
 
 		records[i] = core.Record{
 			TID:    id,
 			AID:    aid,
-			Amount: amount,
-		} // TODO: Handle error from GetAccByName
+			Amount: p.Amount,
+		}
 	}
 
 	if _, err := core.AltTxnRecord(id, records); err != nil {
-		fmt.Println("Error altering transaction record:", err)
-		return
+		return fmt.Errorf("error altering transaction record: %w", err)
 	}
 	fmt.Printf("Transaction #%d records updated successfully.\n", id)
+	return nil
 }
-func DelTxn(cmd cli.Cmd) {
+
+func DelTxn(cmd cli.Cmd) error {
 	id, err := strconv.ParseInt(cmd.Pa[0], 10, 64)
 	if err != nil {
-		fmt.Println("Error parsing transaction ID:", err)
-		return
+		return fmt.Errorf("error parsing transaction ID: %w", err)
 	}
 
 	if _, err := core.DelTxn(id); err != nil {
-		fmt.Println("Error deleting transaction:", err)
-		return
+		return fmt.Errorf("error deleting transaction: %w", err)
 	}
 	fmt.Printf("Transaction #%d deleted successfully.\n", id)
+	return nil
 }

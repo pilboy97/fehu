@@ -21,7 +21,9 @@ import (
 func StartMCPServer() error {
 	// 환경변수가 설정되어 있다면 시작 시 자동으로 DB를 엽니다.
 	if db := os.Getenv("FEHU_DB"); db != "" {
-		core.Open(db + ".db")
+		if err := core.Open(db + ".db"); err != nil {
+			return fmt.Errorf("failed to open database: %w", err)
+		}
 	}
 
 	// 1. 서버 생성
@@ -236,7 +238,9 @@ func handleOpenDB(ctx context.Context, request mcp.CallToolRequest) (res *mcp.Ca
 	args := request.GetArguments()
 	name := args["name"].(string)
 
-	core.Open(name + ".db")
+	if err := core.Open(name + ".db"); err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Error opening database: %v", err)), nil
+	}
 	return mcp.NewToolResultText(fmt.Sprintf("Database %s.db opened successfully\nCurrency: %s", name, core.Code)), nil
 }
 
@@ -259,9 +263,15 @@ func handleGetAccounts(ctx context.Context, request mcp.CallToolRequest) (res *m
 
 		ret = []int64{id}
 	} else if desc != "" {
-		ret = core.GetAccByDesc(desc)
+		ret, err = core.GetAccByDesc(desc)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+		}
 	} else {
-		ret = core.GetAcc()
+		ret, err = core.GetAcc()
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+		}
 	}
 	return mcp.NewToolResultText(core.PrintAccs(ret)), nil
 }
@@ -336,18 +346,22 @@ func handleUpdateAccount(ctx context.Context, request mcp.CallToolRequest) (res 
 
 	if descArg, ok := args["desc"]; ok {
 		if desc, ok := descArg.(string); ok {
-			core.AltAcc(name, &desc)
+			if _, err = core.AltAcc(name, &desc); err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error updating description: %v", err)), nil
+			}
 		}
 	}
 
 	if newNameArg, ok := args["new_name"]; ok {
 		if newName, ok := newNameArg.(string); ok && newName != "" {
-			newName, err = core.SureName(newName) // 정규식 검증 및 중복 체크
+			newName, err = core.SureName(newName)
 			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
 			}
 
-			core.AltRenameAcc(name, newName)
+			if _, err = core.AltRenameAcc(name, newName); err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error renaming account: %v", err)), nil
+			}
 			name = newName
 		}
 	}
@@ -379,15 +393,19 @@ func handleBatchUpdateAccounts(ctx context.Context, request mcp.CallToolRequest)
 			return mcp.NewToolResultText(fmt.Sprintf("Batch account update failed: Account '%s' not found.", name)), nil
 		}
 		if u.Desc != nil {
-			core.AltAcc(name, u.Desc)
+			if _, err := core.AltAcc(name, u.Desc); err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Batch account update failed: %v", err)), nil
+			}
 		}
 		if u.NewName != nil && *u.NewName != "" {
-			newName, err := core.SureName(*u.NewName) // 정규식 검증 및 중복 체크
+			newName, err := core.SureName(*u.NewName)
 			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
 			}
 
-			core.AltRenameAcc(name, newName)
+			if _, err := core.AltRenameAcc(name, newName); err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Batch account update failed: %v", err)), nil
+			}
 			name = newName
 		}
 		updatedNames = append(updatedNames, name)
@@ -789,7 +807,10 @@ func handleGetTags(ctx context.Context, request mcp.CallToolRequest) (res *mcp.C
 			res = mcp.NewToolResultText(fmt.Sprintf("Error: %v", r))
 		}
 	}()
-	ret := core.GetTag()
+	ret, err := core.GetTag()
+	if err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
+	}
 	return mcp.NewToolResultText(core.PrintTags(ret)), nil
 }
 
@@ -814,9 +835,12 @@ func handleUpdateTag(ctx context.Context, request mcp.CallToolRequest) (res *mcp
 
 	if newNameArg, ok := args["new_name"]; ok {
 		if newName, ok := newNameArg.(string); ok && newName != "" {
-			core.SureName(newName)
+			newName, err = core.SureName(newName)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Invalid tag name: %v", err)), nil
+			}
 			if _, err = core.AltRenameTag(name, newName); err != nil {
-				return mcp.NewToolResultText(fmt.Sprintf("Tag rename failed: Tag '%s' already exists.", newName)), nil
+				return mcp.NewToolResultText(fmt.Sprintf("Tag rename failed: %v", err)), nil
 			}
 			name = newName
 		}
@@ -918,9 +942,14 @@ func handleDefCalc(ctx context.Context, request mcp.CallToolRequest) (res *mcp.C
 	name := args["name"].(string)
 	expr := args["expression"].(string)
 
-	core.SureName(name)
-	core.DefStmt(name, expr)
-	return mcp.NewToolResultText(fmt.Sprintf("Variable '%s' defined successfully", name)), nil
+	validName, err := core.SureName(name)
+	if err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Invalid variable name: %v", err)), nil
+	}
+	if err := core.DefStmt(validName, expr); err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Error defining variable: %v", err)), nil
+	}
+	return mcp.NewToolResultText(fmt.Sprintf("Variable '%s' defined successfully", validName)), nil
 }
 
 func handleGetSummary(ctx context.Context, request mcp.CallToolRequest) (res *mcp.CallToolResult, err error) {

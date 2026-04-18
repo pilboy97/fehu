@@ -29,7 +29,6 @@ var calcState = &cli.State{
 	Name:   "calc",
 	Manual: "calculate a statement",
 	Pat:    "^calc$",
-	Param:  1,
 }
 var defState = &cli.State{
 	Action: true,

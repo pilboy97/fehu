@@ -87,7 +87,10 @@ func (t *Table) Acc(ptn string) ast.List {
 	var ret ast.List
 
 	for id := range t.ids {
-		r := GetRecordByTID(id)
+		r, err := GetRecordByTID(id)
+		if err != nil {
+			panic(err)
+		}
 		for _, rid := range r {
 			record, err := GetRecordByID(rid)
 			if err != nil {
@@ -164,7 +167,10 @@ func (t *Table) ATag(name string) ast.List {
 	}
 
 	for id := range t.ids {
-		r := GetRecordByTID(id)
+		r, err := GetRecordByTID(id)
+		if err != nil {
+			panic(err)
+		}
 		for _, rid := range r {
 			record, err := GetRecordByID(rid)
 			if err != nil {
@@ -193,7 +199,10 @@ func (t *Table) TTag(name string) *Table {
 	}
 
 	for id := range t.ids {
-		r := GetRecordByTID(id)
+		r, err := GetRecordByTID(id)
+		if err != nil {
+			panic(err)
+		}
 		for _, rid := range r {
 			record, err := GetRecordByID(rid)
 			if err != nil {
